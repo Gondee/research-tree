@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { parentNodeId, promptTemplate, dataSource } = await req.json()
+    const { parentNodeId, promptTemplate, dataSource, modelId = 'gpt-4o' } = await req.json()
 
     // Verify session ownership
     const researchSession = await prisma.researchSession.findFirst({
@@ -50,6 +50,7 @@ export async function POST(
         sessionId: id,
         parentId: parentNodeId,
         promptTemplate,
+        modelId,
         level,
         status: "pending",
       },

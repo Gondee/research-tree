@@ -36,13 +36,14 @@ export class OpenAIClient {
     prompt,
     maxTime = 1200, // 20 minutes default
     includeSources = true,
-  }: DeepResearchRequest): Promise<DeepResearchResponse> {
+    model = 'gpt-4o'
+  }: DeepResearchRequest & { model?: string }): Promise<DeepResearchResponse> {
     try {
       const startTime = Date.now()
       
-      // Use the deep research model with web search capabilities
+      // Use the selected model for research
       const response = await this.client.chat.completions.create({
-        model: "gpt-4o",  // Using GPT-4o as Deep Research API isn't publicly available yet
+        model: model,
         messages: [
           {
             role: "system",
@@ -100,6 +101,46 @@ export class OpenAIClient {
     return {
       status: 'completed',
       progress: 100
+    }
+  }
+
+  async listModels(): Promise<Array<{ id: string; name: string; description?: string }>> {
+    try {
+      const response = await this.client.models.list()
+      
+      // Filter for models that support chat/completion
+      const chatModels = response.data
+        .filter(model => 
+          model.id.includes('gpt') || 
+          model.id.includes('o3') || 
+          model.id.includes('o4') ||
+          model.id.includes('deep-research')
+        )
+        .map(model => ({
+          id: model.id,
+          name: model.id.replace(/-/g, ' ').replace(/_/g, ' '),
+          description: model.id.includes('deep-research') 
+            ? 'Optimized for in-depth research and synthesis'
+            : model.id.includes('o3') 
+            ? 'Advanced reasoning model'
+            : 'General purpose model'
+        }))
+        .sort((a, b) => {
+          // Prioritize deep-research models
+          if (a.id.includes('deep-research')) return -1
+          if (b.id.includes('deep-research')) return 1
+          return a.id.localeCompare(b.id)
+        })
+      
+      return chatModels
+    } catch (error) {
+      console.error('Failed to list models:', error)
+      // Return fallback models if API fails
+      return [
+        { id: 'gpt-4o', name: 'GPT-4 Optimized', description: 'Latest GPT-4 model' },
+        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Fast GPT-4 model' },
+        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and efficient' }
+      ]
     }
   }
 }

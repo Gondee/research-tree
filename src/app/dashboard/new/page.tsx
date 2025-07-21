@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Loader2, TreePine } from 'lucide-react'
 import { useSession } from 'next-auth/react'
@@ -20,8 +21,10 @@ export default function NewResearchPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    prompt: ''
+    prompt: '',
+    model: 'gpt-4o'
   })
+  const [models, setModels] = useState<Array<{id: string; name: string; description?: string}>>([])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +60,8 @@ export default function NewResearchPage() {
         body: JSON.stringify({
           promptTemplate: formData.prompt,
           parentNodeId: null,
-          dataSource: null
+          dataSource: null,
+          modelId: formData.model
         })
       })
 
@@ -80,6 +84,30 @@ export default function NewResearchPage() {
       router.push('/auth/login')
     }
   }, [status, router])
+
+  // Load available models
+  useEffect(() => {
+    if (status === 'authenticated') {
+      loadModels()
+    }
+  }, [status])
+
+  const loadModels = async () => {
+    try {
+      const res = await fetch('/api/models')
+      if (res.ok) {
+        const data = await res.json()
+        setModels(data.models)
+        // Set default to deep-research model if available
+        const deepResearchModel = data.models.find((m: any) => m.id.includes('deep-research'))
+        if (deepResearchModel) {
+          setFormData(prev => ({ ...prev, model: deepResearchModel.id }))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load models:', error)
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -155,6 +183,34 @@ export default function NewResearchPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="model">AI Model*</Label>
+                  <Select
+                    value={formData.model}
+                    onValueChange={(value) => setFormData({ ...formData, model: value })}
+                    disabled={isLoading || models.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          <div>
+                            <div className="font-medium">{model.name}</div>
+                            {model.description && (
+                              <div className="text-xs text-muted-foreground">{model.description}</div>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose the AI model for your research. Deep Research models are optimized for comprehensive analysis.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="prompt">Initial Research Prompt*</Label>
                   <Textarea
                     id="prompt"
@@ -166,7 +222,7 @@ export default function NewResearchPage() {
                     rows={6}
                   />
                   <p className="text-xs text-muted-foreground">
-                    This prompt will be sent to OpenAI's Deep Research API to start your research
+                    This prompt will be sent to the selected AI model to start your research
                   </p>
                 </div>
               </CardContent>

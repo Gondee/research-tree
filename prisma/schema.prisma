@@ -50,6 +50,7 @@ model ResearchNode {
   children       ResearchNode[] @relation("NodeToNode")
   level          Int      @default(0)
   promptTemplate String
+  modelId        String   @default("gpt-4o")
   status         String   @default("pending") // pending, processing, completed, failed
   tasks          ResearchTask[]
   tableConfig    TableConfig?

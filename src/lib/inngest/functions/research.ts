@@ -16,10 +16,13 @@ export const processResearchTask = inngest.createFunction(
   async ({ event, step }) => {
     const { taskId, nodeId } = event.data
 
-    // Step 1: Get task details
+    // Step 1: Get task details with node info
     const task = await step.run("get-task", async () => {
       return await prisma.researchTask.findUnique({
         where: { id: taskId },
+        include: {
+          node: true
+        }
       })
     })
 
@@ -45,6 +48,7 @@ export const processResearchTask = inngest.createFunction(
           prompt: task.prompt,
           maxTime: 1200, // 20 minutes
           includeSources: true,
+          model: task.node.modelId || 'gpt-4o',
         })
       } catch (error) {
         // Update task with error
