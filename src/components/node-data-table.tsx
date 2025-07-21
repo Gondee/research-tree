@@ -21,8 +21,7 @@ interface NodeData {
     errorMessage?: string
   }>
   generatedTable?: {
-    tableData: any
-    columns: string[]
+    tableData: any // This is JSON data from the database
   }
 }
 
@@ -120,33 +119,66 @@ export function NodeDataTable({ nodeId }: NodeDataTableProps) {
             <CardDescription>Data extracted and structured by AI</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    {nodeData.generatedTable.columns.map((col) => (
-                      <th
-                        key={col}
-                        className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
-                      >
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {(nodeData.generatedTable.tableData as any[]).map((row, idx) => (
-                    <tr key={idx}>
-                      {nodeData.generatedTable!.columns.map((col) => (
-                        <td key={col} className="px-4 py-2 text-sm">
-                          {row[col]}
-                        </td>
+            {(() => {
+              // Parse the tableData JSON if it's a string
+              const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+                ? JSON.parse(nodeData.generatedTable.tableData)
+                : nodeData.generatedTable.tableData;
+              
+              // Check if tableData is an object with columns and data properties
+              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+                'columns' in tableData && 'data' in tableData;
+              
+              const columns = hasStructuredFormat 
+                ? tableData.columns.map((col: any) => col.id || col)
+                : (tableData && Array.isArray(tableData) && tableData.length > 0)
+                  ? Object.keys(tableData[0])
+                  : [];
+              
+              const rows = hasStructuredFormat
+                ? tableData.data
+                : Array.isArray(tableData) ? tableData : [];
+
+              if (columns.length === 0 || rows.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No table data available</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr>
+                        {columns.map((col: string) => (
+                          <th
+                            key={col}
+                            className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {rows.map((row: any, idx: number) => (
+                        <tr key={idx}>
+                          {columns.map((col: string) => (
+                            <td key={col} className="px-4 py-2 text-sm">
+                              {row[col] !== null && row[col] !== undefined 
+                                ? String(row[col]) 
+                                : '-'}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}

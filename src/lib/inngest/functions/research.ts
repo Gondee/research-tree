@@ -154,7 +154,7 @@ export const generateTable = inngest.createFunction(
         data: {
           nodeId,
           tableConfigId: node.tableConfig!.id,
-          tableData: tableResult.tableData,
+          tableData: tableResult, // Save the entire result including columns
         },
       })
     })
