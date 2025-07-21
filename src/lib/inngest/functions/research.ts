@@ -87,8 +87,18 @@ export const processResearchTask = inngest.createFunction(
       return incompleteTasks === 0
     })
 
-    // Step 6: If all tasks complete, trigger table generation
+    // Step 6: If all tasks complete, update node status and trigger table generation
     if (allTasksComplete) {
+      await step.run("update-node-status", async () => {
+        return await prisma.researchNode.update({
+          where: { id: nodeId },
+          data: {
+            status: "completed",
+            completedAt: new Date(),
+          },
+        })
+      })
+      
       await step.sendEvent("trigger-table-gen", {
         name: "table/generation.requested",
         data: { nodeId },

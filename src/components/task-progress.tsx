@@ -7,19 +7,17 @@ import { Clock, Loader2 } from 'lucide-react'
 
 interface TaskProgressProps {
   sessionId: string
+  tasks: Array<{
+    id: string
+    status: string
+    rowIndex: number
+  }>
 }
 
-export function TaskProgress({ sessionId }: TaskProgressProps) {
-  const [progress, setProgress] = useState(30)
-
-  useEffect(() => {
-    // Simulate progress updates
-    const interval = setInterval(() => {
-      setProgress(prev => Math.min(prev + 10, 90))
-    }, 2000)
-    
-    return () => clearInterval(interval)
-  }, [sessionId])
+export function TaskProgress({ sessionId, tasks }: TaskProgressProps) {
+  const completedTasks = tasks.filter(t => t.status === 'completed').length
+  const totalTasks = tasks.length
+  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
     <Card>
@@ -35,8 +33,8 @@ export function TaskProgress({ sessionId }: TaskProgressProps) {
             <Clock className="h-4 w-4 text-muted-foreground" />
             <div className="flex-1">
               <div className="flex justify-between text-sm mb-1">
-                <span>Processing research...</span>
-                <span className="text-muted-foreground">{progress}%</span>
+                <span>Processing {totalTasks} research tasks...</span>
+                <span className="text-muted-foreground">{completedTasks}/{totalTasks} ({progress}%)</span>
               </div>
               <Progress value={progress} className="h-2" />
             </div>

@@ -64,6 +64,22 @@ export default function SessionPage({ params }: SessionPageProps) {
     }
   }, [status, sessionId, router])
 
+  // Auto-refresh when there are active tasks
+  useEffect(() => {
+    if (!researchSession) return
+    
+    const allTasks = researchSession.nodes?.flatMap(node => node.tasks || []) || []
+    const hasActiveTasks = allTasks.some(t => t.status === 'pending' || t.status === 'processing')
+    
+    if (hasActiveTasks) {
+      const interval = setInterval(() => {
+        loadSession()
+      }, 5000) // Poll every 5 seconds
+      
+      return () => clearInterval(interval)
+    }
+  }, [researchSession, sessionId])
+
   const loadSession = async () => {
     if (!sessionId) return
     
@@ -169,7 +185,7 @@ export default function SessionPage({ params }: SessionPageProps) {
           {/* Active Tasks Progress */}
           {activeTasks.length > 0 && (
             <div className="mb-6">
-              <TaskProgress sessionId={researchSession.id} />
+              <TaskProgress sessionId={researchSession.id} tasks={activeTasks} />
             </div>
           )}
 
