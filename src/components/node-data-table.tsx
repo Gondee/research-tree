@@ -144,31 +144,54 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
             {(() => {
               try {
                 // Parse the tableData JSON if it's a string
-                const tableData = typeof nodeData.generatedTable.tableData === 'string' 
-                  ? JSON.parse(nodeData.generatedTable.tableData)
-                  : nodeData.generatedTable.tableData;
+                const rawTableData = nodeData.generatedTable.tableData;
+                console.log('Raw table data:', rawTableData);
+                
+                const tableData = typeof rawTableData === 'string' 
+                  ? JSON.parse(rawTableData)
+                  : rawTableData;
+                
+                console.log('Parsed table data:', tableData);
                 
                 // Check if tableData is an object with columns and data properties
                 const hasStructuredFormat = tableData && typeof tableData === 'object' && 
                   'columns' in tableData && 'data' in tableData;
                 
+                console.log('Has structured format:', hasStructuredFormat);
+                
                 let columns: string[] = [];
-                if (hasStructuredFormat && Array.isArray(tableData.columns)) {
-                  columns = tableData.columns.map((col: any) => {
-                    if (typeof col === 'string') return col;
-                    if (col && typeof col === 'object' && col.id) return col.id;
-                    return String(col);
-                  });
+                let rows: any[] = [];
+                
+                if (hasStructuredFormat) {
+                  console.log('Table columns:', tableData.columns);
+                  console.log('Is columns array?', Array.isArray(tableData.columns));
+                  
+                  if (Array.isArray(tableData.columns)) {
+                    columns = tableData.columns.map((col: any) => {
+                      if (typeof col === 'string') return col;
+                      if (col && typeof col === 'object' && col.id) return col.id;
+                      return String(col);
+                    });
+                  }
+                  
+                  if (Array.isArray(tableData.data)) {
+                    rows = tableData.data;
+                  }
+                } else if (tableData && tableData.tableData) {
+                  // Handle nested tableData structure
+                  console.log('Found nested tableData structure');
+                  const nestedData = Array.isArray(tableData.tableData) ? tableData.tableData : [];
+                  if (nestedData.length > 0) {
+                    columns = Object.keys(nestedData[0]);
+                  }
+                  rows = nestedData;
                 } else if (Array.isArray(tableData) && tableData.length > 0) {
                   columns = Object.keys(tableData[0]);
-                }
-                
-                let rows: any[] = [];
-                if (hasStructuredFormat && Array.isArray(tableData.data)) {
-                  rows = tableData.data;
-                } else if (Array.isArray(tableData)) {
                   rows = tableData;
                 }
+                
+                console.log('Final columns:', columns);
+                console.log('Final rows:', rows);
 
               if (columns.length === 0 || rows.length === 0) {
                 return (
