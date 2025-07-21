@@ -289,13 +289,26 @@ export default function SessionPage({ params }: SessionPageProps) {
                             key={task.id} 
                             className="flex items-center justify-between p-4 border rounded-lg"
                           >
-                            <div className="space-y-1">
+                            <div className="space-y-1 flex-1">
                               <p className="font-medium">
                                 Research Task #{task.rowIndex + 1}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Level {taskNode?.level || 0}
                               </p>
+                              {task.status === 'completed' && task.prompt && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Prompt: {task.prompt.substring(0, 100)}...
+                                </p>
+                              )}
+                              {task.status === 'completed' && task.openaiResponse && (
+                                <div className="mt-2 p-2 bg-muted rounded-md">
+                                  <p className="text-xs font-medium mb-1">Response Preview:</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {task.openaiResponse.substring(0, 200)}...
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           <div className="text-sm">
                             <span className={`
