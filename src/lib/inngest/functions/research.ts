@@ -85,7 +85,8 @@ export const processResearchTask = inngest.createFunction(
 
     // Step 6: If all tasks complete, trigger table generation
     if (allTasksComplete) {
-      await step.sendEvent("table/generation.requested", {
+      await step.sendEvent("trigger-table-gen", {
+        name: "table/generation.requested",
         data: { nodeId },
       })
     }
@@ -121,8 +122,8 @@ export const generateTable = inngest.createFunction(
     // Step 2: Collect all research outputs
     const researchOutputs = await step.run("collect-outputs", async () => {
       return node.tasks
-        .filter(task => task.status === "completed" && task.openaiResponse)
-        .map(task => task.openaiResponse!)
+        .filter((task: any) => task.status === "completed" && task.openaiResponse)
+        .map((task: any) => task.openaiResponse!)
     })
 
     // Step 3: Generate table using Gemini
@@ -182,14 +183,12 @@ export const batchProcessResearch = inngest.createFunction(
     })
 
     // Trigger individual task processing
-    await step.run("trigger-tasks", async () => {
-      const events = tasks.map((taskId: string) => ({
-        name: "research/task.created" as const,
-        data: { taskId, nodeId },
-      }))
-      
-      await step.sendEvents(events)
-    })
+    for (let i = 0; i < tasks.length; i++) {
+      await step.sendEvent(`trigger-task-${i}`, {
+        name: "research/task.created",
+        data: { taskId: tasks[i], nodeId },
+      })
+    }
 
     return { nodeId, tasksTriggered: tasks.length }
   }

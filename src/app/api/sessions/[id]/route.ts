@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -16,7 +17,7 @@ export async function GET(
 
     const researchSession = await prisma.researchSession.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         userId: session.user.id,
       },
       include: {
@@ -49,9 +50,10 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -61,7 +63,7 @@ export async function DELETE(
     // Check ownership
     const researchSession = await prisma.researchSession.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         userId: session.user.id,
       },
     })
@@ -75,7 +77,7 @@ export async function DELETE(
 
     // Delete session (cascades to nodes, tasks, etc.)
     await prisma.researchSession.delete({
-      where: { id: params.id },
+      where: { id: id },
     })
 
     return NextResponse.json({ success: true })

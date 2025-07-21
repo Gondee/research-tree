@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma"
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -19,7 +20,7 @@ export async function PUT(
     // Verify ownership
     const table = await prisma.generatedTable.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         node: {
           session: {
             userId: session.user.id,
@@ -37,7 +38,7 @@ export async function PUT(
 
     // Update table
     const updatedTable = await prisma.generatedTable.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         tableData,
         edited: true,

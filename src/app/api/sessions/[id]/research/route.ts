@@ -6,9 +6,10 @@ import { inngest } from "@/lib/inngest/client"
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -20,7 +21,7 @@ export async function POST(
     // Verify session ownership
     const researchSession = await prisma.researchSession.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         userId: session.user.id,
       },
     })
@@ -46,7 +47,7 @@ export async function POST(
     // Create research node
     const node = await prisma.researchNode.create({
       data: {
-        sessionId: params.id,
+        sessionId: id,
         parentId: parentNodeId,
         promptTemplate,
         level,

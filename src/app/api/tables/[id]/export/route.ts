@@ -6,9 +6,10 @@ import { stringify } from "csv-stringify/sync"
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -18,7 +19,7 @@ export async function GET(
     // Get table with ownership check
     const table = await prisma.generatedTable.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         node: {
           session: {
             userId: session.user.id,

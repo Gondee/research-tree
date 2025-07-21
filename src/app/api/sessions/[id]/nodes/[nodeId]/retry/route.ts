@@ -6,9 +6,10 @@ import { inngest } from "@/lib/inngest/client"
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string; nodeId: string } }
+  { params }: { params: Promise<{ id: string; nodeId: string }> }
 ) {
   try {
+    const { id, nodeId } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -18,9 +19,9 @@ export async function POST(
     // Verify ownership
     const node = await prisma.researchNode.findFirst({
       where: { 
-        id: params.nodeId,
+        id: nodeId,
         session: {
-          id: params.id,
+          id: id,
           userId: session.user.id,
         },
       },
@@ -43,7 +44,7 @@ export async function POST(
     // Reset failed tasks
     await prisma.researchTask.updateMany({
       where: {
-        nodeId: params.nodeId,
+        nodeId: nodeId,
         status: "failed",
       },
       data: {
@@ -56,20 +57,20 @@ export async function POST(
 
     // Update node status
     await prisma.researchNode.update({
-      where: { id: params.nodeId },
+      where: { id: nodeId },
       data: {
         status: "processing",
       },
     })
 
     // Retrigger processing for failed tasks
-    const failedTaskIds = node.tasks.map(t => t.id)
+    const failedTaskIds = node.tasks.map((t: any) => t.id)
     
     if (failedTaskIds.length > 0) {
       await inngest.send({
         name: "research/batch.created",
         data: {
-          nodeId: params.nodeId,
+          nodeId: nodeId,
           tasks: failedTaskIds,
         },
       })

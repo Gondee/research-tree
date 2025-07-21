@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useCallback, useMemo } from 'react'
-import ReactFlow, {
+import {
+  ReactFlow,
   Node,
   Edge,
   useNodesState,
@@ -43,8 +44,9 @@ interface TreeNodeData {
   onAddLevel: (parentNodeId: string) => void
 }
 
-const TreeNode = ({ data }: NodeProps<TreeNodeData>) => {
-  const { researchNode, onNodeClick, onAddLevel } = data
+const TreeNode = ({ data }: NodeProps) => {
+  const typedData = data as unknown as TreeNodeData
+  const { researchNode, onNodeClick, onAddLevel } = typedData
   const [isExpanded, setIsExpanded] = React.useState(true)
 
   const statusIcon = useMemo(() => {
@@ -63,8 +65,8 @@ const TreeNode = ({ data }: NodeProps<TreeNodeData>) => {
   const taskStats = useMemo(() => {
     if (!researchNode.tasks) return null
     const total = researchNode.tasks.length
-    const completed = researchNode.tasks.filter(t => t.status === 'completed').length
-    const failed = researchNode.tasks.filter(t => t.status === 'failed').length
+    const completed = researchNode.tasks.filter((t: any) => t.status === 'completed').length
+    const failed = researchNode.tasks.filter((t: any) => t.status === 'failed').length
     return { total, completed, failed }
   }, [researchNode.tasks])
 
@@ -221,7 +223,7 @@ export function ResearchTree({
 
     const rootNodes = nodes.filter(n => !n.parentId)
     const flowNodes = layoutNodes(rootNodes)
-    setNodes(flowNodes)
+    setNodes(flowNodes as any)
 
     // Create edges
     const flowEdges: Edge[] = []
@@ -241,7 +243,7 @@ export function ResearchTree({
       })
     }
     addEdges(rootNodes)
-    setEdges(flowEdges)
+    setEdges(flowEdges as any)
   }, [nodes, setNodes, setEdges, onNodeClick, onAddLevel])
 
   return (

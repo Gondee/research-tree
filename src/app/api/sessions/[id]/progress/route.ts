@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -16,7 +17,7 @@ export async function GET(
   // Verify session ownership
   const researchSession = await prisma.researchSession.findFirst({
     where: { 
-      id: params.id,
+      id: id,
       userId: session.user.id,
     },
   })
@@ -40,7 +41,7 @@ export async function GET(
         // Get all nodes with their task progress
         const nodes = await prisma.researchNode.findMany({
           where: { 
-            sessionId: params.id,
+            sessionId: id,
             status: { in: ["processing", "pending"] },
           },
           include: {
@@ -57,15 +58,15 @@ export async function GET(
 
         for (const node of nodes) {
           const totalTasks = node.tasks.length
-          const completedTasks = node.tasks.filter(t => t.status === "completed").length
-          const failedTasks = node.tasks.filter(t => t.status === "failed").length
+          const completedTasks = node.tasks.filter((t: any) => t.status === "completed").length
+          const failedTasks = node.tasks.filter((t: any) => t.status === "failed").length
 
           const progress = {
             nodeId: node.id,
             totalTasks,
             completedTasks,
             failedTasks,
-            tasks: node.tasks.map(t => ({
+            tasks: node.tasks.map((t: any) => ({
               id: t.id,
               status: t.status,
               duration: t.completedAt && t.startedAt 
@@ -81,7 +82,7 @@ export async function GET(
         // Check if all nodes are complete
         const activeNodes = await prisma.researchNode.count({
           where: { 
-            sessionId: params.id,
+            sessionId: id,
             status: { in: ["processing", "pending"] },
           },
         })

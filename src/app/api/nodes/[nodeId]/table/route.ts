@@ -6,9 +6,10 @@ import { inngest } from "@/lib/inngest/client"
 
 export async function POST(
   req: Request,
-  { params }: { params: { nodeId: string } }
+  { params }: { params: Promise<{ nodeId: string }> }
 ) {
   try {
+    const { nodeId } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
@@ -27,7 +28,7 @@ export async function POST(
     // Verify ownership and get node
     const node = await prisma.researchNode.findFirst({
       where: { 
-        id: params.nodeId,
+        id: nodeId,
         session: {
           userId: session.user.id,
         },
@@ -50,7 +51,7 @@ export async function POST(
 
     // Update table config
     await prisma.tableConfig.update({
-      where: { nodeId: params.nodeId },
+      where: { nodeId: nodeId },
       data: {
         geminiPrompt,
       },
@@ -60,7 +61,7 @@ export async function POST(
     await inngest.send({
       name: "table/generation.requested",
       data: {
-        nodeId: params.nodeId,
+        nodeId: nodeId,
       },
     })
 
