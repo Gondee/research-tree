@@ -142,24 +142,33 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
           </CardHeader>
           <CardContent>
             {(() => {
-              // Parse the tableData JSON if it's a string
-              const tableData = typeof nodeData.generatedTable.tableData === 'string' 
-                ? JSON.parse(nodeData.generatedTable.tableData)
-                : nodeData.generatedTable.tableData;
-              
-              // Check if tableData is an object with columns and data properties
-              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-                'columns' in tableData && 'data' in tableData;
-              
-              const columns = hasStructuredFormat 
-                ? (Array.isArray(tableData.columns) ? tableData.columns.map((col: any) => col.id || col) : [])
-                : (tableData && Array.isArray(tableData) && tableData.length > 0)
-                  ? Object.keys(tableData[0])
-                  : [];
-              
-              const rows = hasStructuredFormat
-                ? tableData.data
-                : Array.isArray(tableData) ? tableData : [];
+              try {
+                // Parse the tableData JSON if it's a string
+                const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+                  ? JSON.parse(nodeData.generatedTable.tableData)
+                  : nodeData.generatedTable.tableData;
+                
+                // Check if tableData is an object with columns and data properties
+                const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+                  'columns' in tableData && 'data' in tableData;
+                
+                let columns: string[] = [];
+                if (hasStructuredFormat && Array.isArray(tableData.columns)) {
+                  columns = tableData.columns.map((col: any) => {
+                    if (typeof col === 'string') return col;
+                    if (col && typeof col === 'object' && col.id) return col.id;
+                    return String(col);
+                  });
+                } else if (Array.isArray(tableData) && tableData.length > 0) {
+                  columns = Object.keys(tableData[0]);
+                }
+                
+                let rows: any[] = [];
+                if (hasStructuredFormat && Array.isArray(tableData.data)) {
+                  rows = tableData.data;
+                } else if (Array.isArray(tableData)) {
+                  rows = tableData;
+                }
 
               if (columns.length === 0 || rows.length === 0) {
                 return (
@@ -174,32 +183,40 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
-                        {Array.isArray(columns) && columns.map((col: string) => (
+                        {columns && columns.length > 0 ? columns.map((col: string) => (
                           <th
                             key={col}
                             className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
                           >
                             {col}
                           </th>
-                        ))}
+                        )) : null}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {Array.isArray(rows) && rows.map((row: any, idx: number) => (
+                      {rows && rows.length > 0 ? rows.map((row: any, idx: number) => (
                         <tr key={idx}>
-                          {Array.isArray(columns) && columns.map((col: string) => (
+                          {columns && columns.length > 0 ? columns.map((col: string) => (
                             <td key={col} className="px-4 py-2 text-sm">
                               {row[col] !== null && row[col] !== undefined 
                                 ? String(row[col]) 
                                 : '-'}
                             </td>
-                          ))}
+                          )) : null}
                         </tr>
-                      ))}
+                      )) : null}
                     </tbody>
                   </table>
                 </div>
               );
+              } catch (error) {
+                console.error('Error parsing table data:', error);
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Error loading table data</p>
+                  </div>
+                );
+              }
             })()}
           </CardContent>
         </Card>
@@ -213,34 +230,52 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
           parentNodeId={nodeId}
           sessionId={sessionId}
           tableColumns={(() => {
-            const tableData = typeof nodeData.generatedTable.tableData === 'string' 
-              ? JSON.parse(nodeData.generatedTable.tableData)
-              : nodeData.generatedTable.tableData;
-            
-            const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-              'columns' in tableData && 'data' in tableData;
-            
-            const columns = hasStructuredFormat 
-              ? (Array.isArray(tableData.columns) ? tableData.columns.map((col: any) => col.id || col) : [])
-              : (tableData && Array.isArray(tableData) && tableData.length > 0)
-                ? Object.keys(tableData[0])
-                : [];
-            
-            return columns;
+            try {
+              const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+                ? JSON.parse(nodeData.generatedTable.tableData)
+                : nodeData.generatedTable.tableData;
+              
+              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+                'columns' in tableData && 'data' in tableData;
+              
+              let columns: string[] = [];
+              if (hasStructuredFormat && Array.isArray(tableData.columns)) {
+                columns = tableData.columns.map((col: any) => {
+                  if (typeof col === 'string') return col;
+                  if (col && typeof col === 'object' && col.id) return col.id;
+                  return String(col);
+                });
+              } else if (Array.isArray(tableData) && tableData.length > 0) {
+                columns = Object.keys(tableData[0]);
+              }
+              
+              return columns;
+            } catch (error) {
+              console.error('Error parsing table columns:', error);
+              return [];
+            }
           })()}
           rowCount={(() => {
-            const tableData = typeof nodeData.generatedTable.tableData === 'string' 
-              ? JSON.parse(nodeData.generatedTable.tableData)
-              : nodeData.generatedTable.tableData;
-            
-            const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-              'columns' in tableData && 'data' in tableData;
-            
-            const rows = hasStructuredFormat
-              ? tableData.data
-              : Array.isArray(tableData) ? tableData : [];
-            
-            return rows.length;
+            try {
+              const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+                ? JSON.parse(nodeData.generatedTable.tableData)
+                : nodeData.generatedTable.tableData;
+              
+              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+                'columns' in tableData && 'data' in tableData;
+              
+              let rows: any[] = [];
+              if (hasStructuredFormat && Array.isArray(tableData.data)) {
+                rows = tableData.data;
+              } else if (Array.isArray(tableData)) {
+                rows = tableData;
+              }
+              
+              return rows.length;
+            } catch (error) {
+              console.error('Error counting rows:', error);
+              return 0;
+            }
           })()}
           onSuccess={() => {
             setShowNextLevelModal(false)
