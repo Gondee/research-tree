@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -39,12 +37,7 @@ interface ResearchSession {
 
 export default function SessionPage({ params }: SessionPageProps) {
   const router = useRouter()
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.push('/auth/login')
-    },
-  })
+  const { data: session, status } = useSession()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -56,10 +49,14 @@ export default function SessionPage({ params }: SessionPageProps) {
   }, [params])
 
   useEffect(() => {
-    if (status === 'authenticated' && sessionId) {
+    if (status === 'loading') return
+    
+    if (status === 'unauthenticated') {
+      router.push('/auth/login')
+    } else if (status === 'authenticated' && sessionId) {
       loadSession()
     }
-  }, [status, sessionId])
+  }, [status, sessionId, router])
 
   const loadSession = async () => {
     if (!sessionId) return

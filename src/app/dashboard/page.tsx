@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -35,20 +33,19 @@ interface Session {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.push('/auth/login')
-    },
-  })
+  const { data: session, status } = useSession()
   const [sessions, setSessions] = useState<Session[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'loading') return // Do nothing while loading
+    
+    if (status === 'unauthenticated') {
+      router.push('/auth/login')
+    } else if (status === 'authenticated') {
       loadSessions()
     }
-  }, [status])
+  }, [status, router])
 
   const loadSessions = async () => {
     try {
