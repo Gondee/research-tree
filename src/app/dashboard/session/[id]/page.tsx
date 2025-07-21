@@ -251,7 +251,7 @@ export default function SessionPage({ params }: SessionPageProps) {
                           View and export structured data from this research node
                         </CardDescription>
                       </div>
-                      {selectedNode.tables && selectedNode.tables.length > 0 && (
+                      {selectedNode.generatedTable && (
                         <Button
                           size="sm"
                           variant="outline"

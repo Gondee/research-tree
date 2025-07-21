@@ -7,6 +7,12 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { 
   Plus, 
   Search, 
   Clock, 
@@ -14,7 +20,9 @@ import {
   XCircle,
   Loader2,
   TreePine,
-  LogOut
+  LogOut,
+  MoreVertical,
+  Trash2
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { formatDate } from '@/lib/utils'
@@ -58,6 +66,28 @@ export default function DashboardPage() {
       console.error('Failed to load sessions:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const deleteSession = async (sessionId: string, sessionName: string) => {
+    if (!confirm(`Are you sure you want to delete "${sessionName}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'DELETE',
+      })
+      
+      if (res.ok) {
+        // Remove session from list
+        setSessions(sessions.filter(s => s.id !== sessionId))
+      } else {
+        alert('Failed to delete session')
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error)
+      alert('Failed to delete session')
     }
   }
 
@@ -146,8 +176,8 @@ export default function DashboardPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sessions.map((session) => (
-                <Link key={session.id} href={`/dashboard/session/${session.id}`}>
-                  <Card className="hover:shadow-lg transition-all hover:border-primary cursor-pointer h-full">
+                <Card key={session.id} className="hover:shadow-lg transition-all hover:border-primary h-full">
+                  <Link href={`/dashboard/session/${session.id}`} className="block">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="space-y-1 flex-1">
@@ -158,17 +188,44 @@ export default function DashboardPage() {
                             {session.description || 'No description'}
                           </CardDescription>
                         </div>
-                        {getStatusIcon(session.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(session.status)}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  deleteSession(session.id, session.name)
+                                }}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </CardHeader>
+                  </Link>
+                  <Link href={`/dashboard/session/${session.id}`} className="block">
                     <CardContent>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>{session._count.nodes} nodes</span>
                         <span>{formatDate(session.updatedAt)}</span>
                       </div>
                     </CardContent>
-                  </Card>
-                </Link>
+                  </Link>
+                </Card>
               ))}
             </div>
           )}
