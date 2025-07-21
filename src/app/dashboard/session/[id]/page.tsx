@@ -31,8 +31,14 @@ interface ResearchSession {
   status: string
   createdAt: string
   updatedAt: string
-  nodes: any[]
-  tasks: any[]
+  nodes: Array<{
+    id: string
+    title?: string
+    level: number
+    status: string
+    tasks?: any[]
+    tables?: any[]
+  }>
 }
 
 export default function SessionPage({ params }: SessionPageProps) {
@@ -67,7 +73,7 @@ export default function SessionPage({ params }: SessionPageProps) {
         const data = await res.json()
         setResearchSession(data)
         // Select first node by default if available
-        if (data.nodes.length > 0 && !selectedNodeId) {
+        if (data.nodes && data.nodes.length > 0 && !selectedNodeId) {
           setSelectedNodeId(data.nodes[0].id)
         }
       } else {
@@ -115,9 +121,12 @@ export default function SessionPage({ params }: SessionPageProps) {
     return null
   }
 
-  const selectedNode = researchSession.nodes.find(n => n.id === selectedNodeId)
-  const activeTasks = researchSession.tasks.filter(t => t.status === 'pending' || t.status === 'running')
+  const selectedNode = researchSession.nodes?.find(n => n.id === selectedNodeId)
+  // Collect all tasks from all nodes
+  const allTasks = researchSession.nodes?.flatMap(node => node.tasks || []) || []
+  const activeTasks = allTasks.filter(t => t.status === 'pending' || t.status === 'running')
 
+  // Add allTasks to the activity log section
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Header */}
@@ -249,24 +258,29 @@ export default function SessionPage({ params }: SessionPageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {researchSession.tasks.length === 0 ? (
+                    {allTasks.length === 0 ? (
                       <p className="text-muted-foreground text-center py-8">
                         No activity yet
                       </p>
                     ) : (
-                      researchSession.tasks.map((task: any) => (
-                        <div 
-                          key={task.id} 
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="space-y-1">
-                            <p className="font-medium">
-                              {task.type === 'research' ? 'Research Task' : 'Table Generation'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Node: {task.node?.title || 'Unknown'}
-                            </p>
-                          </div>
+                      allTasks.map((task: any) => {
+                        // Find the node this task belongs to
+                        const taskNode = researchSession.nodes?.find(n => 
+                          n.tasks?.some(t => t.id === task.id)
+                        )
+                        return (
+                          <div 
+                            key={task.id} 
+                            className="flex items-center justify-between p-4 border rounded-lg"
+                          >
+                            <div className="space-y-1">
+                              <p className="font-medium">
+                                Research Task #{task.rowIndex + 1}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Level {taskNode?.level || 0}
+                              </p>
+                            </div>
                           <div className="text-sm">
                             <span className={`
                               px-2 py-1 rounded-full text-xs font-medium
@@ -279,7 +293,8 @@ export default function SessionPage({ params }: SessionPageProps) {
                             </span>
                           </div>
                         </div>
-                      ))
+                      )
+                    })
                     )}
                   </div>
                 </CardContent>
