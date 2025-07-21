@@ -31,13 +31,20 @@ interface ResearchSession {
   status: string
   createdAt: string
   updatedAt: string
-  nodes: Array<{
+  nodes?: Array<{
     id: string
     title?: string
     level: number
     status: string
-    tasks?: any[]
-    tables?: any[]
+    tasks?: Array<{
+      id: string
+      status: string
+      rowIndex: number
+      prompt?: string
+      openaiResponse?: string
+    }>
+    generatedTable?: any
+    children?: any[]
   }>
 }
 
@@ -68,7 +75,11 @@ export default function SessionPage({ params }: SessionPageProps) {
   useEffect(() => {
     if (!researchSession) return
     
-    const allTasks = researchSession.nodes?.flatMap(node => node.tasks || []) || []
+    const allTasks = researchSession.nodes?.flatMap(node => {
+      // Ensure tasks is an array
+      if (!node.tasks || !Array.isArray(node.tasks)) return []
+      return node.tasks
+    }) || []
     const hasActiveTasks = allTasks.some(t => t.status === 'pending' || t.status === 'processing')
     
     if (hasActiveTasks) {
@@ -139,7 +150,11 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   const selectedNode = researchSession.nodes?.find(n => n.id === selectedNodeId)
   // Collect all tasks from all nodes
-  const allTasks = researchSession.nodes?.flatMap(node => node.tasks || []) || []
+  const allTasks = researchSession.nodes?.flatMap(node => {
+    // Ensure tasks is an array
+    if (!node.tasks || !Array.isArray(node.tasks)) return []
+    return node.tasks
+  }) || []
   const activeTasks = allTasks.filter(t => t.status === 'pending' || t.status === 'running')
 
   // Add allTasks to the activity log section
@@ -274,15 +289,15 @@ export default function SessionPage({ params }: SessionPageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {allTasks.length === 0 ? (
+                    {!allTasks || allTasks.length === 0 ? (
                       <p className="text-muted-foreground text-center py-8">
                         No activity yet
                       </p>
                     ) : (
-                      allTasks.map((task: any) => {
+                      Array.isArray(allTasks) && allTasks.map((task: any) => {
                         // Find the node this task belongs to
                         const taskNode = researchSession.nodes?.find(n => 
-                          n.tasks?.some(t => t.id === task.id)
+                          Array.isArray(n.tasks) && n.tasks.some(t => t.id === task.id)
                         )
                         return (
                           <div 
