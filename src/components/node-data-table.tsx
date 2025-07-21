@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, FileText, ExternalLink } from 'lucide-react'
+import { Loader2, FileText, ExternalLink, Layers } from 'lucide-react'
+import { NextLevelResearchModal } from './next-level-research-modal'
 
 interface NodeDataTableProps {
   nodeId: string
+  sessionId?: string
 }
 
 interface NodeData {
@@ -25,10 +28,12 @@ interface NodeData {
   }
 }
 
-export function NodeDataTable({ nodeId }: NodeDataTableProps) {
+export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [nodeData, setNodeData] = useState<NodeData | null>(null)
   const [activeTab, setActiveTab] = useState<'research' | 'table'>('research')
+  const [showNextLevelModal, setShowNextLevelModal] = useState(false)
 
   useEffect(() => {
     loadNodeData()
@@ -115,8 +120,21 @@ export function NodeDataTable({ nodeId }: NodeDataTableProps) {
       {activeTab === 'table' && nodeData.generatedTable && (
         <Card>
           <CardHeader>
-            <CardTitle>Structured Data Table</CardTitle>
-            <CardDescription>Data extracted and structured by AI</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Structured Data Table</CardTitle>
+                <CardDescription>Data extracted and structured by AI</CardDescription>
+              </div>
+              {nodeData.status === 'completed' && sessionId && (
+                <Button
+                  onClick={() => setShowNextLevelModal(true)}
+                  className="gap-2"
+                >
+                  <Layers className="h-4 w-4" />
+                  Start Next Level Research
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {(() => {
@@ -181,6 +199,50 @@ export function NodeDataTable({ nodeId }: NodeDataTableProps) {
             })()}
           </CardContent>
         </Card>
+      )}
+
+      {/* Next Level Research Modal */}
+      {nodeData && nodeData.generatedTable && sessionId && (
+        <NextLevelResearchModal
+          open={showNextLevelModal}
+          onClose={() => setShowNextLevelModal(false)}
+          parentNodeId={nodeId}
+          sessionId={sessionId}
+          tableColumns={(() => {
+            const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+              ? JSON.parse(nodeData.generatedTable.tableData)
+              : nodeData.generatedTable.tableData;
+            
+            const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+              'columns' in tableData && 'data' in tableData;
+            
+            const columns = hasStructuredFormat 
+              ? tableData.columns.map((col: any) => col.id || col)
+              : (tableData && Array.isArray(tableData) && tableData.length > 0)
+                ? Object.keys(tableData[0])
+                : [];
+            
+            return columns;
+          })()}
+          rowCount={(() => {
+            const tableData = typeof nodeData.generatedTable.tableData === 'string' 
+              ? JSON.parse(nodeData.generatedTable.tableData)
+              : nodeData.generatedTable.tableData;
+            
+            const hasStructuredFormat = tableData && typeof tableData === 'object' && 
+              'columns' in tableData && 'data' in tableData;
+            
+            const rows = hasStructuredFormat
+              ? tableData.data
+              : Array.isArray(tableData) ? tableData : [];
+            
+            return rows.length;
+          })()}
+          onSuccess={() => {
+            setShowNextLevelModal(false)
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )

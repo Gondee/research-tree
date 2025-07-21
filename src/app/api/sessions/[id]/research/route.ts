@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { parentNodeId, promptTemplate, dataSource, modelId = 'gpt-4o' } = await req.json()
+    const { parentNodeId, promptTemplate, dataSource, modelId = 'gpt-4o', geminiPrompt } = await req.json()
 
     // Verify session ownership
     const researchSession = await prisma.researchSession.findFirst({
@@ -60,42 +60,54 @@ export async function POST(
     await prisma.tableConfig.create({
       data: {
         nodeId: node.id,
-        geminiPrompt: "Extract structured data from the research reports",
-        inputData: {},
+        geminiPrompt: geminiPrompt || "Extract structured data from the research reports",
+        inputData: dataSource || {},
       },
     })
 
     // Generate tasks based on data source
     let tasks: any[] = []
     
-    if (dataSource?.tableId) {
-      // Get table data
-      const sourceTable = await prisma.generatedTable.findUnique({
-        where: { id: dataSource.tableId },
+    if (dataSource === 'table' && parentNodeId) {
+      // Get parent node's generated table
+      const parentNode = await prisma.researchNode.findUnique({
+        where: { id: parentNodeId },
+        include: { generatedTable: true }
       })
 
-      if (sourceTable && sourceTable.tableData) {
-        const rows = sourceTable.tableData as any[]
+      if (parentNode?.generatedTable?.tableData) {
+        // Parse table data
+        const tableData = typeof parentNode.generatedTable.tableData === 'string'
+          ? JSON.parse(parentNode.generatedTable.tableData as string)
+          : parentNode.generatedTable.tableData
         
-        // Create a task for each row
-        tasks = await Promise.all(
-          rows.map(async (row, index) => {
-            // Replace template variables with row data
-            let prompt = promptTemplate
-            dataSource.columns.forEach((col: string) => {
-              prompt = prompt.replace(new RegExp(`{${col}}`, 'g'), row[col] || '')
-            })
+        // Extract rows from the table data
+        const rows = tableData.data || tableData // Handle both structured and simple array formats
+        
+        if (Array.isArray(rows)) {
+          // Create a task for each row
+          tasks = await Promise.all(
+            rows.map(async (row, index) => {
+              // Replace template variables with row data
+              let prompt = promptTemplate
+              
+              // Replace variables in format {{columnName}}
+              Object.keys(row).forEach((key) => {
+                const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+                prompt = prompt.replace(regex, row[key] || '')
+              })
 
-            return prisma.researchTask.create({
-              data: {
-                nodeId: node.id,
-                rowIndex: index,
-                prompt,
-                status: "pending",
-              },
+              return prisma.researchTask.create({
+                data: {
+                  nodeId: node.id,
+                  rowIndex: index,
+                  prompt,
+                  status: "pending",
+                },
+              })
             })
-          })
-        )
+          )
+        }
       }
     } else {
       // Single task with the template as-is

@@ -250,7 +250,7 @@ export default function SessionPage({ params }: SessionPageProps) {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <NodeDataTable nodeId={selectedNode.id} />
+                    <NodeDataTable nodeId={selectedNode.id} sessionId={researchSession.id} />
                   </CardContent>
                 </Card>
               ) : (
