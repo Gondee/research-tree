@@ -23,8 +23,8 @@ export class OpenAIClient {
     if (!apiKey) {
       throw new Error('OpenAI API key is required')
     }
-    // Trim whitespace and newlines from API key
-    this.apiKey = apiKey.trim()
+    // Clean API key - remove all whitespace, newlines, and hidden characters
+    this.apiKey = apiKey.replace(/\s+/g, '').trim()
   }
 
   async deepResearch({
