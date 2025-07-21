@@ -196,13 +196,19 @@ export const batchProcessResearch = inngest.createFunction(
       })
     })
 
-    // Trigger individual task processing
-    for (let i = 0; i < tasks.length; i++) {
-      await step.sendEvent(`trigger-task-${i}`, {
-        name: "research/task.created",
-        data: { taskId: tasks[i], nodeId },
-      })
-    }
+    // Trigger all tasks in parallel
+    await step.run("trigger-all-tasks", async () => {
+      // Create all event promises
+      const eventPromises = tasks.map((taskId: string, index: number) => 
+        step.sendEvent(`trigger-task-${index}`, {
+          name: "research/task.created",
+          data: { taskId, nodeId },
+        })
+      )
+      
+      // Send all events in parallel
+      await Promise.all(eventPromises)
+    })
 
     return { nodeId, tasksTriggered: tasks.length }
   }
