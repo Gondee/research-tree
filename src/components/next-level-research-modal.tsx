@@ -76,7 +76,7 @@ export function NextLevelResearchModal({
     }
   }
 
-  const examplePrompt = tableColumns.length > 0
+  const examplePrompt = Array.isArray(tableColumns) && tableColumns.length > 0
     ? `Research the latest developments and detailed information about {{${tableColumns[0]}}}`
     : 'Research detailed information about {{column_name}}'
 
@@ -96,11 +96,15 @@ export function NextLevelResearchModal({
             <AlertDescription>
               <p className="font-semibold mb-2">Available variables from parent table:</p>
               <div className="flex flex-wrap gap-2">
-                {tableColumns.map(col => (
-                  <code key={col} className="bg-muted px-2 py-1 rounded text-sm">
-                    {`{{${col}}}`}
-                  </code>
-                ))}
+                {Array.isArray(tableColumns) && tableColumns.length > 0 ? (
+                  tableColumns.map(col => (
+                    <code key={col} className="bg-muted px-2 py-1 rounded text-sm">
+                      {`{{${col}}}`}
+                    </code>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No columns available</span>
+                )}
               </div>
             </AlertDescription>
           </Alert>
@@ -127,11 +131,15 @@ export function NextLevelResearchModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {models.map(model => (
-                  <SelectItem key={model.id} value={model.id}>
-                    {model.name}
-                  </SelectItem>
-                ))}
+                {Array.isArray(models) && models.length > 0 ? (
+                  models.map(model => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
