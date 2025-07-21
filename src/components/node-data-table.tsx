@@ -93,7 +93,10 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
       {/* Content */}
       {activeTab === 'research' && (
         <div className="space-y-4">
-          {nodeData.tasks.map((task, index) => (
+          {(!nodeData.tasks || nodeData.tasks.length === 0) ? (
+            <p className="text-center text-muted-foreground py-8">No research tasks available</p>
+          ) : (
+            nodeData.tasks && Array.isArray(nodeData.tasks) && nodeData.tasks.map((task, index) => (
             <Card key={task.id}>
               <CardHeader>
                 <CardTitle className="text-base">Research Task #{index + 1}</CardTitle>
@@ -113,7 +116,8 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                 )}
               </CardContent>
             </Card>
-          ))}
+          ))
+          )}
         </div>
       )}
 
@@ -148,7 +152,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                 'columns' in tableData && 'data' in tableData;
               
               const columns = hasStructuredFormat 
-                ? tableData.columns.map((col: any) => col.id || col)
+                ? (Array.isArray(tableData.columns) ? tableData.columns.map((col: any) => col.id || col) : [])
                 : (tableData && Array.isArray(tableData) && tableData.length > 0)
                   ? Object.keys(tableData[0])
                   : [];
@@ -170,7 +174,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
-                        {columns.map((col: string) => (
+                        {Array.isArray(columns) && columns.map((col: string) => (
                           <th
                             key={col}
                             className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
@@ -181,9 +185,9 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {rows.map((row: any, idx: number) => (
+                      {Array.isArray(rows) && rows.map((row: any, idx: number) => (
                         <tr key={idx}>
-                          {columns.map((col: string) => (
+                          {Array.isArray(columns) && columns.map((col: string) => (
                             <td key={col} className="px-4 py-2 text-sm">
                               {row[col] !== null && row[col] !== undefined 
                                 ? String(row[col]) 
@@ -217,7 +221,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
               'columns' in tableData && 'data' in tableData;
             
             const columns = hasStructuredFormat 
-              ? tableData.columns.map((col: any) => col.id || col)
+              ? (Array.isArray(tableData.columns) ? tableData.columns.map((col: any) => col.id || col) : [])
               : (tableData && Array.isArray(tableData) && tableData.length > 0)
                 ? Object.keys(tableData[0])
                 : [];
