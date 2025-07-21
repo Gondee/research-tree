@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+// Users table
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  sessions  ResearchSession[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Research sessions
+model ResearchSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      String   @default("active") // active, completed, archived
+  nodes       ResearchNode[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Research nodes (tree structure)
+model ResearchNode {
+  id             String   @id @default(cuid())
+  sessionId      String
+  session        ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  parentId       String?
+  parent         ResearchNode? @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
+  children       ResearchNode[] @relation("NodeToNode")
+  level          Int      @default(0)
+  promptTemplate String
+  status         String   @default("pending") // pending, processing, completed, failed
+  tasks          ResearchTask[]
+  tableConfig    TableConfig?
+  generatedTable GeneratedTable?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([parentId])
+}
+
+// Individual research tasks
+model ResearchTask {
+  id              String   @id @default(cuid())
+  nodeId          String
+  node            ResearchNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  rowIndex        Int
+  prompt          String   @db.Text
+  status          String   @default("pending") // pending, processing, completed, failed
+  openaiResponse  String?  @db.Text
+  errorMessage    String?
+  retryCount      Int      @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([nodeId])
+}
+
+// Table configurations
+model TableConfig {
+  id            String   @id @default(cuid())
+  nodeId        String   @unique
+  node          ResearchNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  geminiPrompt  String   @db.Text
+  inputData     Json     // Combined research outputs
+  outputSchema  Json?    // Table structure
+  createdAt     DateTime @default(now())
+}
+
+// Generated tables
+model GeneratedTable {
+  id            String   @id @default(cuid())
+  nodeId        String   @unique
+  node          ResearchNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  tableConfigId String?
+  tableData     Json     // Actual table data
+  version       Int      @default(1)
+  edited        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([nodeId])
+}
