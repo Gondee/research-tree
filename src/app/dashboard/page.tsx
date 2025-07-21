@@ -45,12 +45,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login')
-    } else if (status === 'authenticated') {
+    if (status === 'authenticated') {
       loadSessions()
     }
-  }, [status, router])
+  }, [status])
 
   const loadSessions = async () => {
     try {

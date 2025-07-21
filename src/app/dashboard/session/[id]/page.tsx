@@ -56,12 +56,10 @@ export default function SessionPage({ params }: SessionPageProps) {
   }, [params])
 
   useEffect(() => {
-    if (!session) {
-      router.push('/auth/login')
-    } else if (sessionId) {
+    if (status === 'authenticated' && sessionId) {
       loadSession()
     }
-  }, [session, sessionId, router])
+  }, [status, sessionId])
 
   const loadSession = async () => {
     if (!sessionId) return
