@@ -162,18 +162,35 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                 ? JSON.parse(nodeData.generatedTable.tableData)
                 : nodeData.generatedTable.tableData;
               
-              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-                'columns' in tableData && 'data' in tableData;
-              
               let columns: string[] = [];
-              if (hasStructuredFormat && Array.isArray(tableData.columns)) {
-                columns = tableData.columns.map((col: any) => {
-                  if (typeof col === 'string') return col;
-                  if (col && typeof col === 'object' && col.id) return col.id;
-                  return String(col);
-                });
-              } else if (Array.isArray(tableData) && tableData.length > 0) {
+              
+              // Check for Gemini response format (columns + tableData)
+              if (tableData && typeof tableData === 'object' && 'columns' in tableData && 'tableData' in tableData) {
+                if (Array.isArray(tableData.columns)) {
+                  columns = tableData.columns.map((col: any) => {
+                    if (typeof col === 'string') return col;
+                    if (col && typeof col === 'object' && col.id) return col.id;
+                    return String(col);
+                  });
+                }
+              }
+              // Check for alternative format (columns + data)
+              else if (tableData && typeof tableData === 'object' && 'columns' in tableData && 'data' in tableData) {
+                if (Array.isArray(tableData.columns)) {
+                  columns = tableData.columns.map((col: any) => {
+                    if (typeof col === 'string') return col;
+                    if (col && typeof col === 'object' && col.id) return col.id;
+                    return String(col);
+                  });
+                }
+              }
+              // Fallback: if it's just an array of objects, get keys from first row
+              else if (Array.isArray(tableData) && tableData.length > 0) {
                 columns = Object.keys(tableData[0]);
+              }
+              // Additional fallback: check if tableData has a nested tableData property with array
+              else if (tableData && tableData.tableData && Array.isArray(tableData.tableData) && tableData.tableData.length > 0) {
+                columns = Object.keys(tableData.tableData[0]);
               }
               
               return columns;
@@ -188,13 +205,18 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                 ? JSON.parse(nodeData.generatedTable.tableData)
                 : nodeData.generatedTable.tableData;
               
-              const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-                'columns' in tableData && 'data' in tableData;
-              
               let rows: any[] = [];
-              if (hasStructuredFormat && Array.isArray(tableData.data)) {
+              
+              // Check for Gemini response format (columns + tableData)
+              if (tableData && typeof tableData === 'object' && 'tableData' in tableData && Array.isArray(tableData.tableData)) {
+                rows = tableData.tableData;
+              }
+              // Check for alternative format (columns + data)
+              else if (tableData && typeof tableData === 'object' && 'data' in tableData && Array.isArray(tableData.data)) {
                 rows = tableData.data;
-              } else if (Array.isArray(tableData)) {
+              }
+              // Fallback: if it's just an array
+              else if (Array.isArray(tableData)) {
                 rows = tableData;
               }
               
