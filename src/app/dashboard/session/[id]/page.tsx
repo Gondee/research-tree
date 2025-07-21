@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResearchTree } from '@/components/research-tree'
 import { NodeDataTable } from '@/components/node-data-table'
 import { TaskProgress } from '@/components/task-progress'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { 
   ArrowLeft, 
   Loader2, 
@@ -241,42 +242,44 @@ export default function SessionPage({ params }: SessionPageProps) {
             </TabsContent>
 
             <TabsContent value="data" className="mt-6">
-              {selectedNode ? (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>Data Table: {selectedNode.title}</CardTitle>
-                        <CardDescription>
-                          View and export structured data from this research node
-                        </CardDescription>
+              <ErrorBoundary>
+                {selectedNode ? (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Data Table: {selectedNode.title || 'Research Node'}</CardTitle>
+                          <CardDescription>
+                            View and export structured data from this research node
+                          </CardDescription>
+                        </div>
+                        {selectedNode.generatedTable && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleExportCSV(selectedNode.id)}
+                            className="gap-2"
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Export CSV
+                          </Button>
+                        )}
                       </div>
-                      {selectedNode.generatedTable && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleExportCSV(selectedNode.id)}
-                          className="gap-2"
-                        >
-                          <FileDown className="h-4 w-4" />
-                          Export CSV
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <NodeDataTable nodeId={selectedNode.id} sessionId={researchSession.id} />
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="text-center py-12">
-                    <p className="text-muted-foreground">
-                      Select a node from the research tree to view its data
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+                    </CardHeader>
+                    <CardContent>
+                      <NodeDataTable nodeId={selectedNode.id} sessionId={researchSession.id} />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <p className="text-muted-foreground">
+                        Select a node from the research tree to view its data
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </ErrorBoundary>
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
