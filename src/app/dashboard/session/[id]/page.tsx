@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -36,8 +38,13 @@ interface ResearchSession {
 }
 
 export default function SessionPage({ params }: SessionPageProps) {
-  const { data: session } = useSession()
   const router = useRouter()
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push('/auth/login')
+    },
+  })
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -101,7 +108,7 @@ export default function SessionPage({ params }: SessionPageProps) {
     }
   }
 
-  if (!session || isLoading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

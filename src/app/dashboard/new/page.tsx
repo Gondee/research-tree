@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -12,8 +14,13 @@ import { ArrowLeft, Loader2, TreePine } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
 export default function NewResearchPage() {
-  const { data: session } = useSession()
   const router = useRouter()
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push('/auth/login')
+    },
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   
@@ -73,8 +80,15 @@ export default function NewResearchPage() {
     }
   }
 
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   if (!session) {
-    router.push('/auth/login')
     return null
   }
 
