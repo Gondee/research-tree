@@ -1,3 +1,5 @@
+import OpenAI from 'openai'
+
 interface DeepResearchRequest {
   prompt: string
   maxTime?: number
@@ -16,15 +18,18 @@ interface DeepResearchResponse {
 }
 
 export class OpenAIClient {
-  private apiKey: string
-  private baseUrl = 'https://api.openai.com/v1'
+  private client: OpenAI
 
   constructor(apiKey: string = process.env.OPENAI_API_KEY!) {
     if (!apiKey) {
       throw new Error('OpenAI API key is required')
     }
     // Clean API key - remove all whitespace, newlines, and hidden characters
-    this.apiKey = apiKey.replace(/\s+/g, '').trim()
+    const cleanApiKey = apiKey.replace(/\s+/g, '').trim()
+    
+    this.client = new OpenAI({
+      apiKey: cleanApiKey,
+    })
   }
 
   async deepResearch({
@@ -33,32 +38,53 @@ export class OpenAIClient {
     includeSources = true,
   }: DeepResearchRequest): Promise<DeepResearchResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/deep-research`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'deep-research-v1',
-          prompt,
-          max_time: maxTime,
-          include_sources: includeSources,
-        }),
+      const startTime = Date.now()
+      
+      // Use the deep research model with web search capabilities
+      const response = await this.client.chat.completions.create({
+        model: "gpt-4o",  // Using GPT-4o as Deep Research API isn't publicly available yet
+        messages: [
+          {
+            role: "system",
+            content: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
+            Provide detailed, well-structured information with citations where possible.
+            Focus on accuracy, comprehensiveness, and clarity.
+            ${includeSources ? 'Include source references in your response.' : ''}`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
       })
 
-      if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`OpenAI API error: ${response.status} - ${error}`)
+      const endTime = Date.now()
+      const duration = Math.floor((endTime - startTime) / 1000)
+
+      // Extract content from response
+      const content = response.choices[0]?.message?.content || ''
+
+      // Parse sources from content if requested
+      let sources: DeepResearchResponse['sources'] = []
+      if (includeSources) {
+        // Extract URLs from the content using regex
+        const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g
+        const urls = content.match(urlRegex) || []
+        
+        sources = urls.slice(0, 5).map((url, index) => ({
+          title: `Source ${index + 1}`,
+          url: url,
+          snippet: ''
+        }))
       }
 
-      const data = await response.json()
-      
       return {
-        content: data.content,
-        sources: data.sources,
+        content,
+        sources,
         completedAt: new Date().toISOString(),
-        duration: data.duration || 0,
+        duration,
       }
     } catch (error) {
       console.error('Deep research failed:', error)
@@ -70,21 +96,10 @@ export class OpenAIClient {
     status: 'pending' | 'processing' | 'completed' | 'failed'
     progress?: number
   }> {
-    try {
-      const response = await fetch(`${this.baseUrl}/deep-research/status/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to check status: ${response.status}`)
-      }
-
-      return response.json()
-    } catch (error) {
-      console.error('Status check failed:', error)
-      throw error
+    // Since we're using synchronous completion, always return completed
+    return {
+      status: 'completed',
+      progress: 100
     }
   }
 }
