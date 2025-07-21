@@ -70,10 +70,6 @@ export default function DashboardPage() {
   }
 
   const deleteSession = async (sessionId: string, sessionName: string) => {
-    if (!confirm(`Are you sure you want to delete "${sessionName}"? This action cannot be undone.`)) {
-      return
-    }
-
     try {
       const res = await fetch(`/api/sessions/${sessionId}`, {
         method: 'DELETE',
@@ -83,11 +79,10 @@ export default function DashboardPage() {
         // Remove session from list
         setSessions(sessions.filter(s => s.id !== sessionId))
       } else {
-        alert('Failed to delete session')
+        console.error('Failed to delete session')
       }
     } catch (error) {
       console.error('Failed to delete session:', error)
-      alert('Failed to delete session')
     }
   }
 
