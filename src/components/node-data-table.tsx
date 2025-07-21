@@ -84,19 +84,19 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
           variant={activeTab === 'table' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setActiveTab('table')}
-          disabled={!nodeData.generatedTable}
+          disabled={!nodeData || !nodeData.generatedTable}
         >
           Generated Table
         </Button>
       </div>
 
       {/* Content */}
-      {activeTab === 'research' && (
+      {activeTab === 'research' && nodeData && (
         <div className="space-y-4">
-          {(!nodeData.tasks || nodeData.tasks.length === 0) ? (
+          {(!nodeData.tasks || !Array.isArray(nodeData.tasks) || nodeData.tasks.length === 0) ? (
             <p className="text-center text-muted-foreground py-8">No research tasks available</p>
           ) : (
-            nodeData.tasks && Array.isArray(nodeData.tasks) && nodeData.tasks.map((task, index) => (
+            nodeData.tasks.map((task, index) => (
             <Card key={task.id}>
               <CardHeader>
                 <CardTitle className="text-base">Research Task #{index + 1}</CardTitle>
@@ -143,55 +143,54 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
           <CardContent>
             {(() => {
               try {
+                if (!nodeData || !nodeData.generatedTable || !nodeData.generatedTable.tableData) {
+                  return (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No table data available</p>
+                    </div>
+                  );
+                }
+                
                 // Parse the tableData JSON if it's a string
                 const rawTableData = nodeData.generatedTable.tableData;
-                console.log('Raw table data:', rawTableData);
-                
                 const tableData = typeof rawTableData === 'string' 
                   ? JSON.parse(rawTableData)
                   : rawTableData;
                 
-                console.log('Parsed table data:', tableData);
-                
-                // Check if tableData is an object with columns and data properties
-                const hasStructuredFormat = tableData && typeof tableData === 'object' && 
-                  'columns' in tableData && 'data' in tableData;
-                
-                console.log('Has structured format:', hasStructuredFormat);
-                
+                // Initialize columns and rows
                 let columns: string[] = [];
                 let rows: any[] = [];
                 
-                if (hasStructuredFormat) {
-                  console.log('Table columns:', tableData.columns);
-                  console.log('Is columns array?', Array.isArray(tableData.columns));
-                  
-                  if (Array.isArray(tableData.columns)) {
-                    columns = tableData.columns.map((col: any) => {
-                      if (typeof col === 'string') return col;
-                      if (col && typeof col === 'object' && col.id) return col.id;
-                      return String(col);
-                    });
+                // Check different data structures
+                if (tableData && typeof tableData === 'object') {
+                  // Case 1: Structured format with columns and data
+                  if ('columns' in tableData && 'data' in tableData) {
+                    if (Array.isArray(tableData.columns)) {
+                      columns = tableData.columns.map((col: any) => {
+                        if (typeof col === 'string') return col;
+                        if (col && typeof col === 'object' && col.id) return col.id;
+                        return String(col);
+                      });
+                    }
+                    if (Array.isArray(tableData.data)) {
+                      rows = tableData.data;
+                    }
                   }
-                  
-                  if (Array.isArray(tableData.data)) {
-                    rows = tableData.data;
+                  // Case 2: Nested tableData structure
+                  else if ('tableData' in tableData && Array.isArray(tableData.tableData)) {
+                    rows = tableData.tableData;
+                    if (rows.length > 0) {
+                      columns = Object.keys(rows[0]);
+                    }
                   }
-                } else if (tableData && tableData.tableData) {
-                  // Handle nested tableData structure
-                  console.log('Found nested tableData structure');
-                  const nestedData = Array.isArray(tableData.tableData) ? tableData.tableData : [];
-                  if (nestedData.length > 0) {
-                    columns = Object.keys(nestedData[0]);
+                  // Case 3: Direct array of objects
+                  else if (Array.isArray(tableData)) {
+                    rows = tableData;
+                    if (rows.length > 0) {
+                      columns = Object.keys(rows[0]);
+                    }
                   }
-                  rows = nestedData;
-                } else if (Array.isArray(tableData) && tableData.length > 0) {
-                  columns = Object.keys(tableData[0]);
-                  rows = tableData;
                 }
-                
-                console.log('Final columns:', columns);
-                console.log('Final rows:', rows);
 
               if (columns.length === 0 || rows.length === 0) {
                 return (
@@ -201,33 +200,42 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
                 );
               }
 
+              // Ensure we have valid arrays before rendering
+              if (!Array.isArray(columns) || !Array.isArray(rows)) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Invalid table data format</p>
+                  </div>
+                );
+              }
+              
               return (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
-                        {columns && columns.length > 0 ? columns.map((col: string) => (
+                        {columns.map((col: string) => (
                           <th
                             key={col}
                             className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"
                           >
                             {col}
                           </th>
-                        )) : null}
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {rows && rows.length > 0 ? rows.map((row: any, idx: number) => (
+                      {rows.map((row: any, idx: number) => (
                         <tr key={idx}>
-                          {columns && columns.length > 0 ? columns.map((col: string) => (
+                          {columns.map((col: string) => (
                             <td key={col} className="px-4 py-2 text-sm">
-                              {row[col] !== null && row[col] !== undefined 
+                              {row && row[col] !== null && row[col] !== undefined 
                                 ? String(row[col]) 
                                 : '-'}
                             </td>
-                          )) : null}
+                          ))}
                         </tr>
-                      )) : null}
+                      ))}
                     </tbody>
                   </table>
                 </div>
