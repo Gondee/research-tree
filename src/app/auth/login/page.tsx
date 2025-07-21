@@ -29,10 +29,13 @@ export default function LoginPage() {
         redirect: false,
       })
 
+      console.log('Sign in result:', result)
+
       if (result?.error) {
         setError('Invalid email or password')
-      } else {
-        router.push('/dashboard')
+      } else if (result?.ok) {
+        // Use window.location for a hard redirect
+        window.location.href = '/dashboard'
       }
     } catch (err) {
       setError('Something went wrong. Please try again.')
