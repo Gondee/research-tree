@@ -51,13 +51,13 @@ export default function NewResearchPage() {
       const sessionData = await sessionRes.json()
 
       // Start the first research task
-      const researchRes = await fetch('/api/research', {
+      const researchRes = await fetch(`/api/sessions/${sessionData.id}/research`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId: sessionData.id,
-          prompt: formData.prompt,
-          parentNodeId: null
+          promptTemplate: formData.prompt,
+          parentNodeId: null,
+          dataSource: null
         })
       })
 
