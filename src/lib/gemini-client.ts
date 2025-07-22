@@ -58,13 +58,11 @@ Important rules:
 4. For lists, use JSON arrays
 5. For complex data, use nested JSON objects
 6. Ensure all dates are in ISO format
-7. BE CONCISE: Limit text fields to essential information only
-8. AVOID REPETITION: Do not duplicate information across columns
-9. SUMMARIZE: Long descriptions should be condensed to key points
-10. Maximum 200 characters per text field unless absolutely necessary`
+7. Include all relevant information from the research
+8. Be comprehensive but well-structured`
 
       const response = await fetch(
-        `${this.baseUrl}/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`,
+        `${this.baseUrl}/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -84,7 +82,7 @@ Important rules:
             ],
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 30000, // Slightly reduced to ensure complete responses
+              maxOutputTokens: 65535, // Maximum allowed for Gemini 2.5 Flash
               responseMimeType: 'application/json',
             },
             safetySettings: [

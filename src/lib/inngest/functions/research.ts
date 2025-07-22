@@ -313,8 +313,8 @@ export const generateTable = inngest.createFunction(
       console.log(`Total context size for table generation: ${totalContextSize} characters, ${contextWithLineage.length} reports`)
       
       // If context is too large, batch the processing
-      const MAX_CONTEXT_SIZE = 100000 // ~100KB of text
-      if (totalContextSize > MAX_CONTEXT_SIZE && contextWithLineage.length > 5) {
+      const MAX_CONTEXT_SIZE = 500000 // ~500KB of text (increased for Gemini 2.5 Flash)
+      if (totalContextSize > MAX_CONTEXT_SIZE && contextWithLineage.length > 10) {
         console.log(`Context too large (${totalContextSize} chars), processing in batches`)
         
         // Process in smaller batches
