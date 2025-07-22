@@ -66,24 +66,17 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async jwt({ token, user }) {
-      const dbUser = await prisma.user.findFirst({
-        where: {
-          email: token.email!,
-        },
-      })
-
-      if (!dbUser) {
-        if (user) {
-          token.id = user?.id
+      // If we have a user object, this is a new login
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
         }
-        return token
       }
-
-      return {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-      }
+      
+      // Otherwise, return the existing token
+      return token
     },
   },
   pages: {
