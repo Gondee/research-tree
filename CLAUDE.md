@@ -82,6 +82,7 @@ npm install             # Triggers postinstall which runs prisma generate
 - Explicit error handling with status updates
 - Throttling configured (10 tasks/60s)
 - Reasoning models (o1, o3): Special batching (3 tasks at a time with 15s delays)
+- **Warning**: Deep research models may exceed platform timeout limits (20-30 min tasks)
 - Event-driven architecture for chaining operations
 
 ### UI State Management
@@ -91,6 +92,12 @@ npm install             # Triggers postinstall which runs prisma generate
 - No global state for auth - use `useSession()` hook
 
 ### Common Gotchas & Solutions
+
+0. **Deep Research Model Timeouts**: Deep research models can take 20-30 minutes
+   - Vercel/serverless platforms have max timeouts (5-15 min)
+   - Inngest functions timeout even with extended configuration  
+   - **Solution**: Use standard models (GPT-4o) for production workloads
+   - **Future**: Implement proper background job queue for deep research
 
 1. **API Key Formatting**: OpenAI keys may have embedded newlines - always clean with `.replace(/\s+/g, '')`
 

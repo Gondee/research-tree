@@ -12,6 +12,10 @@ export const processResearchTask = inngest.createFunction(
       limit: 10,
       period: "60s",
     },
+    timeouts: {
+      start: "5m",     // Allow 5 minutes to start
+      finish: "30m",   // Allow 30 minutes total execution
+    },
   },
   { event: "research/task.created" },
   async ({ event, step }) => {
@@ -45,6 +49,19 @@ export const processResearchTask = inngest.createFunction(
         task.node.level
       )
       
+      // Log warning for deep research models
+      if (task.node.modelId?.includes('deep-research')) {
+        await ActivityLogger.logActivity({
+          sessionId: task.node.session.id,
+          nodeId: task.nodeId,
+          taskId: task.id,
+          level: task.node.level,
+          eventType: "task_started",
+          message: `⚠️ Deep research model detected - this may take 20-30 minutes`,
+          details: `Using ${task.node.modelId}. Platform timeouts may occur. Consider using GPT-4o for faster processing.`,
+        })
+      }
+      
       return await prisma.researchTask.update({
         where: { id: taskId },
         data: {
@@ -63,9 +80,17 @@ export const processResearchTask = inngest.createFunction(
           includeSources: true,
           model: task.node.modelId || 'gpt-4o',
         })
-      } catch (error) {
+      } catch (error: any) {
+        // Check if this is a timeout error
+        const isTimeout = error?.message?.includes('timeout') || 
+                         error?.message?.includes('FUNCTION_INVOCATION_TIMEOUT') ||
+                         error?.code === 'ECONNABORTED' ||
+                         error?.code === 'ETIMEDOUT'
+        
         // Update task with error
-        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        const errorMessage = isTimeout 
+          ? `Request timed out. Deep research models can take 20+ minutes which may exceed platform limits. Consider using standard models (GPT-4o) for faster processing.`
+          : error instanceof Error ? error.message : "Unknown error"
         
         await ActivityLogger.taskFailed(
           task.node.session.id,
@@ -209,6 +234,10 @@ export const generateTable = inngest.createFunction(
   {
     id: "generate-table",
     retries: 2,
+    timeouts: {
+      start: "2m",
+      finish: "10m",
+    },
   },
   { event: "table/generation.requested" },
   async ({ event, step }) => {
@@ -346,6 +375,10 @@ export const batchProcessResearch = inngest.createFunction(
     id: "batch-process-research",
     concurrency: {
       limit: 5,
+    },
+    timeouts: {
+      start: "5m",
+      finish: "45m",  // Allow enough time for multiple deep research tasks
     },
   },
   { event: "research/batch.created" },
