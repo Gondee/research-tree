@@ -76,14 +76,14 @@ export function SafeTableRenderer({ tableData }: SafeTableRendererProps) {
     else if (parsedData && typeof parsedData === 'object' && 'tableData' in parsedData) {
       if (Array.isArray(parsedData.tableData) && parsedData.tableData.length > 0) {
         rows = parsedData.tableData
-        const keys = Object.keys(rows[0])
+        const keys = Object.keys(rows[0]).filter(key => !key.startsWith('_')) // Filter out metadata
         columnInfo = keys.map(key => ({ id: key, header: key }))
       }
     }
     // Case 4: Direct array
     else if (Array.isArray(parsedData) && parsedData.length > 0) {
       rows = parsedData
-      const keys = Object.keys(rows[0])
+      const keys = Object.keys(rows[0]).filter(key => !key.startsWith('_')) // Filter out metadata
       columnInfo = keys.map(key => ({ id: key, header: key }))
     }
     // Case 5: Check if it's a wrapper object with nested structure
@@ -92,7 +92,7 @@ export function SafeTableRenderer({ tableData }: SafeTableRendererProps) {
       const arrayProps = Object.keys(parsedData).filter(key => Array.isArray(parsedData[key]))
       if (arrayProps.length > 0 && parsedData[arrayProps[0]].length > 0) {
         rows = parsedData[arrayProps[0]]
-        const keys = Object.keys(rows[0])
+        const keys = Object.keys(rows[0]).filter(key => !key.startsWith('_')) // Filter out metadata
         columnInfo = keys.map(key => ({ id: key, header: key }))
       }
     }

@@ -79,14 +79,22 @@ export async function GET(
               const task = child.tasks?.[index]
               const parentData = task?.parentRowData as any
               
+              // Debug logging
+              if (index === 0) {
+                console.log(`Child ${child.id} - First row parent data:`, parentData)
+                console.log(`Child ${child.id} - First row generated data:`, row)
+              }
+              
               // Merge parent row data with generated table row
               return {
-                ...row,
-                // Preserve all parent row properties
+                // Include parent row properties first (so they can be overridden if needed)
                 ...(parentData && typeof parentData === 'object' ? parentData : {}),
+                // Then include the generated row data
+                ...row,
                 // Add metadata for tracking
                 _sourceNodeId: child.id,
-                _sourceLevel: child.level
+                _sourceLevel: child.level,
+                _hasParentData: !!parentData
               }
             })
           } catch (error) {
@@ -107,7 +115,7 @@ export async function GET(
         generatedTable: childTables.length > 0 ? {
           tableData: {
             columns: childTables.length > 0 && childTables[0] 
-              ? Object.keys(childTables[0]) 
+              ? Object.keys(childTables[0]).filter(key => !key.startsWith('_')) // Filter out metadata columns
               : [],
             tableData: childTables,
             combined: true,
