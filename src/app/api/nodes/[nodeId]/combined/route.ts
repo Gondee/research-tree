@@ -65,14 +65,30 @@ export async function GET(
               : child.generatedTable!.tableData
             
             // Extract rows from various formats
+            let rows = []
             if (tableData.tableData && Array.isArray(tableData.tableData)) {
-              return tableData.tableData
+              rows = tableData.tableData
             } else if (tableData.data && Array.isArray(tableData.data)) {
-              return tableData.data
+              rows = tableData.data
             } else if (Array.isArray(tableData)) {
-              return tableData
+              rows = tableData
             }
-            return []
+            
+            // For each row, check if we have parent row data from tasks
+            return rows.map((row: any, index: number) => {
+              const task = child.tasks?.[index]
+              const parentData = task?.parentRowData as any
+              
+              // Merge parent row data with generated table row
+              return {
+                ...row,
+                // Preserve all parent row properties
+                ...(parentData && typeof parentData === 'object' ? parentData : {}),
+                // Add metadata for tracking
+                _sourceNodeId: child.id,
+                _sourceLevel: child.level
+              }
+            })
           } catch (error) {
             console.error('Error parsing child table data:', error)
             return []

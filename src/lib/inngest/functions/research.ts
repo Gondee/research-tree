@@ -281,11 +281,15 @@ export const generateTable = inngest.createFunction(
       
       console.log(`Found ${node.tasks.length} tasks for node ${nodeId}`)
 
-    // Step 2: Collect all research outputs
+    // Step 2: Collect all research outputs with parent row data
     const researchOutputs = await step.run("collect-outputs", async () => {
       return node.tasks
         .filter((task: any) => task.status === "completed" && task.openaiResponse)
-        .map((task: any) => task.openaiResponse!)
+        .map((task: any) => ({
+          research: task.openaiResponse!,
+          parentRowData: task.parentRowData,
+          rowIndex: task.rowIndex
+        }))
     })
 
     // Step 3: Generate table using Gemini
@@ -296,9 +300,22 @@ export const generateTable = inngest.createFunction(
         node.level
       )
       
+      // Prepare context with parent row data
+      const contextWithLineage = researchOutputs.map((output: any) => {
+        if (output.parentRowData) {
+          return `Parent Row Data: ${JSON.stringify(output.parentRowData)}\n\nResearch Output:\n${output.research}`
+        }
+        return output.research
+      })
+      
+      const enhancedPrompt = node.tableConfig!.geminiPrompt + 
+        (researchOutputs.some((o: any) => o.parentRowData) 
+          ? "\n\nIMPORTANT: Include the parent row properties in the output table. Each row should preserve the original properties that were used in the research prompt."
+          : "")
+      
       return await geminiClient.generateTable({
-        prompt: node.tableConfig!.geminiPrompt,
-        context: researchOutputs,
+        prompt: enhancedPrompt,
+        context: contextWithLineage,
       })
     })
 

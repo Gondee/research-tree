@@ -121,6 +121,7 @@ export async function POST(
                   rowIndex: index,
                   prompt,
                   status: "pending",
+                  parentRowData: row, // Store the parent row data
                 },
               })
               

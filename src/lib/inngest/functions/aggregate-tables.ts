@@ -90,11 +90,20 @@ export const generateAggregateTable = inngest.createFunction(
             }
 
             // Add source node ID to each row for traceability
-            rows.forEach((row: any) => {
+            rows.forEach((row: any, index: number) => {
+              // Get parent row data from the corresponding task
+              const task = child.tasks?.[index]
+              const parentData = task?.parentRowData as any
+              
               allRows.push({
+                // Include parent row properties first (so they can be overridden if needed)
+                ...(parentData && typeof parentData === 'object' ? parentData : {}),
+                // Then include the generated row data
                 ...row,
+                // Finally add metadata
                 _sourceNodeId: child.id,
-                _sourceLevel: child.level
+                _sourceLevel: child.level,
+                _hasParentData: !!parentData
               })
             })
           } catch (error) {
@@ -109,7 +118,9 @@ export const generateAggregateTable = inngest.createFunction(
       const aggregatePrompt = node.tableConfig?.geminiPrompt || 
         `Create an aggregate summary table from the following ${combinedTableData.allRows.length} rows of data collected from ${childrenWithTables.length} research branches. 
          Identify patterns, group similar items, and create a comprehensive overview.
-         Include summary statistics where appropriate.`
+         Include summary statistics where appropriate.
+         
+         IMPORTANT: Preserve all original properties from the parent rows in your output. Each row should maintain the properties that were used as template variables in the research prompts.`
 
       const aggregateResult = await step.run("generate-aggregate-table", async () => {
         await ActivityLogger.tableGenerationStarted(

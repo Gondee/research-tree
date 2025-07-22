@@ -76,6 +76,7 @@ model ResearchTask {
   openaiResponse  String?  @db.Text
   errorMessage    String?
   retryCount      Int      @default(0)
+  parentRowData   Json?    // Stores the parent table row that spawned this task
   startedAt       DateTime?
   completedAt     DateTime?
   createdAt       DateTime @default(now())
