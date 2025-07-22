@@ -308,6 +308,30 @@ export const generateTable = inngest.createFunction(
         return output.research
       })
       
+      // Calculate total context size
+      const totalContextSize = contextWithLineage.reduce((sum: number, ctx: string) => sum + ctx.length, 0)
+      console.log(`Total context size for table generation: ${totalContextSize} characters, ${contextWithLineage.length} reports`)
+      
+      // If context is too large, batch the processing
+      const MAX_CONTEXT_SIZE = 100000 // ~100KB of text
+      if (totalContextSize > MAX_CONTEXT_SIZE && contextWithLineage.length > 5) {
+        console.log(`Context too large (${totalContextSize} chars), processing in batches`)
+        
+        // Process in smaller batches
+        const batchSize = Math.max(3, Math.floor(contextWithLineage.length / Math.ceil(totalContextSize / MAX_CONTEXT_SIZE)))
+        const results = await geminiClient.processLargeContext(
+          node.tableConfig!.geminiPrompt + 
+            (researchOutputs.some((o: any) => o.parentRowData) 
+              ? "\n\nIMPORTANT: Include the parent row properties in the output table. Each row should preserve the original properties that were used in the research prompt."
+              : ""),
+          contextWithLineage,
+          batchSize
+        )
+        
+        // Return the merged result
+        return results[0]
+      }
+      
       const enhancedPrompt = node.tableConfig!.geminiPrompt + 
         (researchOutputs.some((o: any) => o.parentRowData) 
           ? "\n\nIMPORTANT: Include the parent row properties in the output table. Each row should preserve the original properties that were used in the research prompt."

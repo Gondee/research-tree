@@ -57,7 +57,11 @@ Important rules:
 3. Handle missing data with null values
 4. For lists, use JSON arrays
 5. For complex data, use nested JSON objects
-6. Ensure all dates are in ISO format`
+6. Ensure all dates are in ISO format
+7. BE CONCISE: Limit text fields to essential information only
+8. AVOID REPETITION: Do not duplicate information across columns
+9. SUMMARIZE: Long descriptions should be condensed to key points
+10. Maximum 200 characters per text field unless absolutely necessary`
 
       const response = await fetch(
         `${this.baseUrl}/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`,
@@ -80,9 +84,27 @@ Important rules:
             ],
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 32768,
+              maxOutputTokens: 30000, // Slightly reduced to ensure complete responses
               responseMimeType: 'application/json',
             },
+            safetySettings: [
+              {
+                category: 'HARM_CATEGORY_HARASSMENT',
+                threshold: 'BLOCK_ONLY_HIGH'
+              },
+              {
+                category: 'HARM_CATEGORY_HATE_SPEECH',
+                threshold: 'BLOCK_ONLY_HIGH'
+              },
+              {
+                category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                threshold: 'BLOCK_ONLY_HIGH'
+              },
+              {
+                category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                threshold: 'BLOCK_ONLY_HIGH'
+              }
+            ],
           }),
         }
       )
@@ -93,8 +115,50 @@ Important rules:
       }
 
       const result = await response.json()
+      
+      // Check if we have valid candidates
+      if (!result.candidates || result.candidates.length === 0) {
+        throw new Error('No candidates returned from Gemini API')
+      }
+      
+      // Check if content was filtered or blocked
+      if (result.candidates[0].finishReason === 'SAFETY') {
+        throw new Error('Content was blocked by safety filters')
+      }
+      
+      // Check for truncation
+      if (result.candidates[0].finishReason === 'MAX_TOKENS') {
+        console.warn('Gemini response was truncated due to token limit')
+      }
+      
       const generatedContent = result.candidates[0].content.parts[0].text
-      const parsedData = JSON.parse(generatedContent)
+      
+      // Try to parse the JSON with better error handling
+      let parsedData
+      try {
+        parsedData = JSON.parse(generatedContent)
+      } catch (parseError) {
+        console.error('Failed to parse Gemini response as JSON:', parseError)
+        console.error('Response content length:', generatedContent.length)
+        console.error('First 500 chars:', generatedContent.substring(0, 500))
+        console.error('Last 500 chars:', generatedContent.substring(generatedContent.length - 500))
+        
+        // Check if response was truncated (incomplete JSON)
+        if (parseError instanceof SyntaxError && parseError.message.includes('Unterminated')) {
+          throw new Error(`Gemini response appears to be truncated. The response was ${generatedContent.length} characters long and may have exceeded the token limit. Consider reducing the amount of input data or breaking it into smaller batches.`)
+        }
+        
+        throw new Error(`Failed to parse Gemini response as JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+      }
+      
+      // Validate the parsed data structure
+      if (!parsedData.data || !Array.isArray(parsedData.data)) {
+        throw new Error('Invalid response structure: missing or invalid "data" array')
+      }
+      
+      if (!parsedData.columns || !Array.isArray(parsedData.columns)) {
+        throw new Error('Invalid response structure: missing or invalid "columns" array')
+      }
 
       return {
         tableData: parsedData.data,
