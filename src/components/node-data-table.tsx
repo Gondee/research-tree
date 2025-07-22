@@ -30,6 +30,12 @@ interface NodeData {
   generatedTable?: {
     tableData: any // This is JSON data from the database
   }
+  isCombined?: boolean
+  childCount?: number
+  originalNodeData?: {
+    tasks: any[]
+    generatedTable?: any
+  }
 }
 
 export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
@@ -46,10 +52,22 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
 
   const loadNodeData = async () => {
     try {
-      const res = await fetch(`/api/nodes/${nodeId}`)
-      if (res.ok) {
-        const data = await res.json()
+      // First try to load combined data (includes children)
+      const combinedRes = await fetch(`/api/nodes/${nodeId}/combined`)
+      if (combinedRes.ok) {
+        const data = await combinedRes.json()
         setNodeData(data)
+        // Default to table view if this is combined data with children
+        if (data.isCombined && data.childCount > 0 && data.generatedTable) {
+          setActiveTab('table')
+        }
+      } else {
+        // Fallback to regular node endpoint
+        const res = await fetch(`/api/nodes/${nodeId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setNodeData(data)
+        }
       }
     } catch (error) {
       console.error('Failed to load node data:', error)
@@ -173,6 +191,16 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
   return (
     <ErrorBoundary>
       <div className="space-y-4">
+        {/* Show combined data indicator */}
+        {nodeData.isCombined && nodeData.childCount && nodeData.childCount > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-800">
+              <Layers className="inline h-4 w-4 mr-1" />
+              Showing combined data from {nodeData.childCount} child nodes
+            </p>
+          </div>
+        )}
+        
         {/* Tab buttons */}
         <div className="flex gap-2">
           <Button
@@ -180,7 +208,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
             size="sm"
             onClick={() => setActiveTab('research')}
           >
-            Research Results
+            Research Results {nodeData.isCombined && `(${nodeData.tasks.length} tasks)`}
           </Button>
           <Button
             variant={activeTab === 'table' ? 'default' : 'outline'}
@@ -188,7 +216,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
             onClick={() => setActiveTab('table')}
             disabled={!nodeData || !nodeData.generatedTable}
           >
-            Generated Table
+            Generated Table {nodeData.isCombined && nodeData.generatedTable && '(Combined)'}
           </Button>
         </div>
 
@@ -254,9 +282,13 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Structured Data Table</CardTitle>
-                <CardDescription>Data extracted and structured by AI</CardDescription>
+                <CardDescription>
+                  {nodeData.isCombined && nodeData.childCount && nodeData.childCount > 0
+                    ? `Combined data from ${nodeData.childCount} research branches`
+                    : 'Data extracted and structured by AI'}
+                </CardDescription>
               </div>
-              {nodeData.status === 'completed' && sessionId && (
+              {nodeData.status === 'completed' && sessionId && !nodeData.isCombined && (
                 <Button
                   onClick={() => setShowNextLevelModal(true)}
                   className="gap-2"

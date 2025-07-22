@@ -2,7 +2,7 @@ import { inngest } from "../client"
 import { prisma } from "@/lib/prisma"
 import { openAIClient } from "@/lib/openai-client"
 import { geminiClient } from "@/lib/gemini-client"
-import { ActivityLogger } from "@/lib/activity-logger"
+import { ActivityLogger, logActivity } from "@/lib/activity-logger"
 
 // Main function with proper timeout configuration
 export const processResearchTaskV2 = inngest.createFunction(
@@ -70,7 +70,7 @@ export const processResearchTaskV2 = inngest.createFunction(
         // For deep research, we'll use a different approach
         // Start the research and get a job ID or similar
         await step.run("start-deep-research", async () => {
-          await ActivityLogger.logActivity({
+          await logActivity({
             sessionId: task.node.session.id,
             nodeId: task.nodeId,
             taskId: task.id,
@@ -128,22 +128,22 @@ export const processResearchTaskV2 = inngest.createFunction(
             }
           })
 
-          if (attemptResult.success) {
+          if (attemptResult.success && 'data' in attemptResult) {
             researchResult = attemptResult.data
             break
-          } else if (!attemptResult.retry) {
+          } else if ('retry' in attemptResult && !attemptResult.retry) {
             // Non-retryable error, fail immediately
-            lastError = attemptResult.error
+            lastError = 'error' in attemptResult ? attemptResult.error : 'Unknown error'
             break
           }
 
-          lastError = attemptResult.error
+          lastError = 'error' in attemptResult ? attemptResult.error : 'Unknown error'
           attempts++
           
           // Log progress
           if (attempts % 5 === 0) {
             await step.run(`log-progress-${attempts}`, async () => {
-              await ActivityLogger.logActivity({
+              await logActivity({
                 sessionId: task.node.session.id,
                 nodeId: task.nodeId,
                 taskId: task.id,

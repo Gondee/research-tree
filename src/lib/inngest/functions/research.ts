@@ -2,7 +2,7 @@ import { inngest } from "../client"
 import { prisma } from "@/lib/prisma"
 import { openAIClient } from "@/lib/openai-client"
 import { geminiClient } from "@/lib/gemini-client"
-import { ActivityLogger } from "@/lib/activity-logger"
+import { ActivityLogger, logActivity } from "@/lib/activity-logger"
 
 export const processResearchTask = inngest.createFunction(
   {
@@ -51,7 +51,7 @@ export const processResearchTask = inngest.createFunction(
       
       // Log warning for deep research models
       if (task.node.modelId?.includes('deep-research')) {
-        await ActivityLogger.logActivity({
+        await logActivity({
           sessionId: task.node.session.id,
           nodeId: task.nodeId,
           taskId: task.id,
@@ -221,6 +221,21 @@ export const processResearchTask = inngest.createFunction(
           name: "table/generation.requested",
           data: { nodeId },
         })
+        
+        // Also check if parent needs aggregate table
+        const nodeWithParent = await step.run("get-node-parent", async () => {
+          return await prisma.researchNode.findUnique({
+            where: { id: nodeId },
+            select: { parentId: true }
+          })
+        })
+        
+        if (nodeWithParent?.parentId) {
+          await step.sendEvent("check-parent-completion", {
+            name: "node/children.completed",
+            data: { parentNodeId: nodeWithParent.parentId },
+          })
+        }
       }
     } else {
       console.log(`Not all tasks complete for node ${nodeId}, waiting...`)

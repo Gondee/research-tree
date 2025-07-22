@@ -1,6 +1,6 @@
 import { inngest } from "../client"
 import { prisma } from "@/lib/prisma"
-import { ActivityLogger } from "@/lib/activity-logger"
+import { ActivityLogger, logActivity } from "@/lib/activity-logger"
 
 // This function handles deep research tasks differently
 // It acknowledges that deep research is a long-running monolithic operation
@@ -37,7 +37,7 @@ export const handleDeepResearchTask = inngest.createFunction(
 
     // Step 2: Mark task as "deep_processing" - a special status
     await step.run("mark-deep-processing", async () => {
-      await ActivityLogger.logActivity({
+      await logActivity({
         sessionId: task.node.session.id,
         nodeId: task.nodeId,
         taskId: task.id,
@@ -72,7 +72,7 @@ export const handleDeepResearchTask = inngest.createFunction(
     await step.run("create-deep-research-job", async () => {
       // You could create a new table for tracking deep research jobs
       // For now, we'll just log it
-      await ActivityLogger.logActivity({
+      await logActivity({
         sessionId: task.node.session.id,
         nodeId: task.nodeId,
         taskId: task.id,
