@@ -81,7 +81,7 @@ npm install             # Triggers postinstall which runs prisma generate
 - Step functions for reliability and observability
 - Explicit error handling with status updates
 - Throttling configured (10 tasks/60s)
-- Deep research models: Special batching (3 tasks at a time with 30s delays)
+- Reasoning models (o1, o3): Special batching (3 tasks at a time with 15s delays)
 - Event-driven architecture for chaining operations
 
 ### UI State Management
@@ -126,13 +126,18 @@ No test framework is currently set up. When implementing tests:
 2. **Polling Interval**: 5-second refresh may be aggressive for many concurrent users
 3. **Rate Limit Management**: 
    - Standard models: 10 tasks/minute via Inngest throttling
-   - Deep research models: Batched processing (3 tasks at a time with 30s delays)
-   - OpenAI Rate limits vary by model and account tier:
-     - GPT-4o: 30K-30M TPM (Tokens Per Minute) based on tier
-     - Deep Research: 5-250 queries/month based on plan (Free: 5, Plus: 25, Pro: 250)
+   - Reasoning models: Batched processing (3 tasks at a time with 15s delays)
+   - OpenAI API Rate limits (tier-based, not subscription-based):
+     - **Tier 1 (New accounts)**: Basic limits
+     - **Tier 2**: $50+ spent, 7+ days - Higher limits
+     - **Tier 5**: $1,000+ spent, 30+ days - Highest limits
+     - **o3-mini**: 25-50 RPM, 60K-150K TPM (tier-dependent)
+     - **GPT-4o**: Higher limits than reasoning models
    - Monitor x-ratelimit headers in responses
    - Use exponential backoff for retries
+   - Tier upgrades based on API spending, not time
 4. **Model Selection**: 
-   - Deep research models have strict monthly limits
+   - Reasoning models (o1, o3) have lower RPM/TPM limits
    - Standard models (GPT-4o) better for high-volume tasks
-   - Consider cost vs quality tradeoffs
+   - API tier affects available rate limits
+   - Consider cost vs quality vs rate limit tradeoffs

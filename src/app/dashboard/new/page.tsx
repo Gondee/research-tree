@@ -209,17 +209,17 @@ export default function NewResearchPage() {
                   <p className="text-xs text-muted-foreground">
                     Choose the AI model for your research. Deep Research models are optimized for comprehensive analysis.
                   </p>
-                  {formData.model.includes('deep-research') && (
+                  {(formData.model.includes('o3') || formData.model.includes('o1')) && (
                     <Alert className="mt-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-sm">
-                        <strong>Rate Limits:</strong> Deep Research models have strict monthly limits:
+                        <strong>API Rate Limits:</strong> Reasoning models have stricter limits:
                         <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li>Free accounts: 5 queries/month</li>
-                          <li>Plus/Team accounts: 25 queries/month</li>
-                          <li>Pro accounts: 250 queries/month</li>
+                          <li>o3-mini: 25-50 RPM, 60K-150K TPM (tier-based)</li>
+                          <li>Lower limits than GPT-4o models</li>
+                          <li>Tier upgrades based on API spending</li>
                         </ul>
-                        Consider using GPT-4o for higher volume research tasks.
+                        Consider GPT-4o for higher volume tasks or if hitting limits.
                       </AlertDescription>
                     </Alert>
                   )}

@@ -46,6 +46,9 @@ export class OpenAIClient {
     this.client = new OpenAI({
       apiKey: cleanApiKey,
     }) as any
+    
+    // Log a reminder about checking API tier
+    console.log('OpenAI Client initialized. Check your API tier at https://platform.openai.com/settings/limits')
   }
 
   async deepResearch({
@@ -58,10 +61,8 @@ export class OpenAIClient {
       // Check if this is a deep research model that requires the responses endpoint
       if (model.includes('deep-research')) {
         console.log(`Using /v1/responses endpoint for model: ${model}`)
-        // Note: Deep research models have specific rate limits:
-        // - Free users: 5 queries/month
-        // - Plus/Team: 25 queries/month
-        // - Pro users: 250 queries/month
+        // Note: API rate limits are tier-based, not subscription-based
+        // Reasoning models typically have lower RPM/TPM limits than standard models
         return this.deepResearchV2({ prompt, maxTime, includeSources, model })
       }
 
@@ -222,6 +223,9 @@ export class OpenAIClient {
           if (headers['x-ratelimit-limit-requests']) {
             console.log(`Rate limits: ${headers['x-ratelimit-remaining-requests']}/${headers['x-ratelimit-limit-requests']} requests remaining`)
           }
+          if (headers['x-ratelimit-limit-tokens']) {
+            console.log(`Token limits: ${headers['x-ratelimit-remaining-tokens']}/${headers['x-ratelimit-limit-tokens']} tokens remaining`)
+          }
           
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
@@ -357,22 +361,27 @@ export class OpenAIClient {
         { 
           id: 'o3-deep-research-2025-06-26', 
           name: 'O3 Deep Research', 
-          description: 'Optimized for in-depth synthesis and research (Limited: 5-250 queries/month based on plan)' 
+          description: 'Advanced reasoning with deep research capabilities' 
         },
         { 
           id: 'o4-mini-deep-research-2025-06-26', 
           name: 'O4 Mini Deep Research', 
-          description: 'Lightweight and faster deep research (Limited: 5-250 queries/month based on plan)' 
+          description: 'Lightweight reasoning model optimized for research' 
+        },
+        { 
+          id: 'o3-mini', 
+          name: 'O3 Mini', 
+          description: 'Latest reasoning model (25-50 RPM, 60K-150K TPM)' 
         },
         { 
           id: 'gpt-4o', 
           name: 'GPT-4 Optimized', 
-          description: 'Latest GPT-4 model (30K-30M TPM based on tier)' 
+          description: 'Latest GPT-4 model with higher rate limits' 
         },
         { 
           id: 'gpt-4-turbo', 
           name: 'GPT-4 Turbo', 
-          description: 'Fast GPT-4 model (30K-30M TPM based on tier)' 
+          description: 'Fast GPT-4 model for production workloads' 
         },
         { 
           id: 'gpt-3.5-turbo', 

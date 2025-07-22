@@ -274,9 +274,14 @@ export const batchProcessResearch = inngest.createFunction(
       })
     })
     
-    const isDeepResearch = node?.modelId?.includes('deep-research')
-    if (isDeepResearch) {
-      console.log(`Using deep research model with strict rate limits. Processing tasks with delays.`)
+    // Check if using reasoning models (o1, o3) which have stricter rate limits
+    const isReasoningModel = node?.modelId && (
+      node.modelId.includes('o1') || 
+      node.modelId.includes('o3') || 
+      node.modelId.includes('deep-research')
+    )
+    if (isReasoningModel) {
+      console.log(`Using reasoning model (${node.modelId}) with stricter API rate limits. Processing with delays.`)
     }
 
     // Update node status
@@ -291,11 +296,11 @@ export const batchProcessResearch = inngest.createFunction(
     })
 
     // Trigger tasks with rate limit considerations
-    if (isDeepResearch && tasks.length > 5) {
-      // For deep research models with strict monthly limits, process in smaller batches
-      console.log(`Deep research model detected. Processing ${tasks.length} tasks in batches to respect rate limits`)
+    if (isReasoningModel && tasks.length > 5) {
+      // Reasoning models have lower RPM limits (25-50 RPM for o3-mini)
+      console.log(`Reasoning model detected. Processing ${tasks.length} tasks in batches to respect API rate limits`)
       
-      const batchSize = 3 // Process 3 at a time for deep research
+      const batchSize = 3 // Process 3 at a time for reasoning models
       for (let i = 0; i < tasks.length; i += batchSize) {
         const batch = tasks.slice(i, i + batchSize)
         const batchPromises = batch.map((taskId: string, batchIndex: number) => 
@@ -307,9 +312,9 @@ export const batchProcessResearch = inngest.createFunction(
         
         await Promise.all(batchPromises)
         
-        // Add delay between batches for deep research models (avoid hitting per-minute limits)
+        // Add delay between batches to respect RPM limits (e.g., 25-50 RPM for o3-mini)
         if (i + batchSize < tasks.length) {
-          await step.sleep("batch-delay-" + i, "30s") // 30 second delay between batches
+          await step.sleep("batch-delay-" + i, "15s") // 15 second delay = ~12-15 requests/minute
         }
       }
     } else {
