@@ -93,13 +93,18 @@ export async function POST(
               // Replace template variables with row data
               let prompt = promptTemplate
               
+              console.log(`Row ${index} data:`, row)
+              console.log(`Original prompt: ${promptTemplate}`)
+              
               // Replace variables in format {{columnName}}
               Object.keys(row).forEach((key) => {
-                const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-                prompt = prompt.replace(regex, row[key] || '')
+                const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'gi')  // Handle spaces and case-insensitive
+                const value = row[key] || ''
+                console.log(`Replacing {{${key}}} with "${value}"`)
+                prompt = prompt.replace(regex, value)
               })
               
-              console.log(`Task ${index}: ${prompt.substring(0, 100)}...`)
+              console.log(`Final prompt ${index}: ${prompt}`)
 
               return prisma.researchTask.create({
                 data: {
