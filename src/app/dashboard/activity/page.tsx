@@ -100,8 +100,8 @@ export default function ActivityLogPage() {
   })
   
   // Filters
-  const [sessionId, setSessionId] = useState<string>('')
-  const [eventType, setEventType] = useState<string>('')
+  const [sessionId, setSessionId] = useState<string>('all')
+  const [eventType, setEventType] = useState<string>('all')
   const [sessions, setSessions] = useState<Array<{id: string, name: string}>>([])
 
   useEffect(() => {
@@ -155,8 +155,8 @@ export default function ActivityLogPage() {
         limit: pagination.limit.toString(),
       })
       
-      if (sessionId) params.append('sessionId', sessionId)
-      if (eventType) params.append('eventType', eventType)
+      if (sessionId && sessionId !== 'all') params.append('sessionId', sessionId)
+      if (eventType && eventType !== 'all') params.append('eventType', eventType)
       
       const res = await fetch(`/api/activity-logs?${params}`)
       if (res.ok) {
@@ -271,7 +271,7 @@ export default function ActivityLogPage() {
                       <SelectValue placeholder="All sessions" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All sessions</SelectItem>
+                      <SelectItem value="all">All sessions</SelectItem>
                       {sessions.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name}
@@ -288,7 +288,7 @@ export default function ActivityLogPage() {
                       <SelectValue placeholder="All events" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All events</SelectItem>
+                      <SelectItem value="all">All events</SelectItem>
                       <SelectItem value="task_created">Task Created</SelectItem>
                       <SelectItem value="task_started">Task Started</SelectItem>
                       <SelectItem value="task_completed">Task Completed</SelectItem>
@@ -307,8 +307,8 @@ export default function ActivityLogPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      setSessionId('')
-                      setEventType('')
+                      setSessionId('all')
+                      setEventType('all')
                       setPagination(prev => ({ ...prev, page: 1 }))
                     }}
                     className="w-full"
