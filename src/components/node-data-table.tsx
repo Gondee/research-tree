@@ -123,7 +123,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
               </div>
               {sessionId && (
                 <Button
-                  onClick={handleRetry}
+                  onClick={() => handleRetry(false)}
                   disabled={isRetrying}
                   variant="outline"
                   size="sm"
