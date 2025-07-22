@@ -300,13 +300,11 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-2">
-            <div className="h-[600px]">
-              <ExcelTableCompact 
-                tableData={nodeData.generatedTable?.tableData} 
-                sessionName={nodeData.promptTemplate?.slice(0, 50) || 'research-data'}
-              />
-            </div>
+          <CardContent className="p-3">
+            <ExcelTableCompact 
+              tableData={nodeData.generatedTable?.tableData} 
+              sessionName={nodeData.promptTemplate?.slice(0, 50) || 'research-data'}
+            />
           </CardContent>
         </Card>
       )}

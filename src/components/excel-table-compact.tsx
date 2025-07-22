@@ -332,10 +332,22 @@ export function ExcelTableCompact({ tableData, sessionName = 'data' }: ExcelTabl
 
   const hasActiveFilters = globalFilter || Object.values(columnFilters).some(f => f)
 
+  // Calculate dynamic height
+  const calculateHeight = () => {
+    const headerHeight = 30
+    const rowHeight = 24
+    const toolbarHeight = 40
+    const maxHeight = 800
+    const minHeight = 200
+    
+    const calculatedHeight = headerHeight + (filteredData.length * rowHeight) + toolbarHeight
+    return Math.min(maxHeight, Math.max(minHeight, calculatedHeight))
+  }
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* Compact Toolbar */}
-      <div className="flex items-center gap-2 mb-2 px-1">
+      <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-2 top-1.5 h-3 w-3 text-gray-400" />
@@ -483,7 +495,10 @@ export function ExcelTableCompact({ tableData, sessionName = 'data' }: ExcelTabl
       </div>
 
       {/* Compact Table */}
-      <div className="flex-1 border rounded-sm overflow-hidden">
+      <div 
+        className="border rounded-sm overflow-hidden"
+        style={{ height: `${calculateHeight()}px` }}
+      >
         <div className="overflow-auto h-full relative">
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">

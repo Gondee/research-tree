@@ -11,6 +11,7 @@ import { ResearchTree } from '@/components/research-tree'
 import { NodeDataTable } from '@/components/node-data-table'
 import { TaskProgress } from '@/components/task-progress'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { ActivityLog } from '@/components/activity-log'
 import { 
   ArrowLeft, 
   Loader2, 
@@ -223,8 +224,8 @@ export default function SessionPage({ params }: SessionPageProps) {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
+      <main className="px-6 py-6">
+        <div>
           {/* Active Tasks Progress */}
           {activeTasks.length > 0 && (
             <div className="mb-6">
@@ -234,7 +235,7 @@ export default function SessionPage({ params }: SessionPageProps) {
 
           {/* Main Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3 max-w-md">
               <TabsTrigger value="tree" className="gap-2">
                 <TreePine className="h-4 w-4" />
                 Research Tree
@@ -242,6 +243,10 @@ export default function SessionPage({ params }: SessionPageProps) {
               <TabsTrigger value="data" className="gap-2">
                 <Table className="h-4 w-4" />
                 Data Tables
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="gap-2">
+                <Activity className="h-4 w-4" />
+                Activity Log
               </TabsTrigger>
             </TabsList>
 
@@ -304,18 +309,30 @@ export default function SessionPage({ params }: SessionPageProps) {
                 )}
               </ErrorBoundary>
             </TabsContent>
+
+            <TabsContent value="activity" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Activity Log</CardTitle>
+                      <CardDescription>
+                        Real-time updates of research progress across all levels
+                      </CardDescription>
+                    </div>
+                    <Link href="/dashboard/activity">
+                      <Button variant="outline" size="sm">
+                        View Full Log
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ActivityLog sessionId={researchSession.id} />
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
-          
-          {/* Activity Log Link */}
-          <div className="mt-6 text-center">
-            <Link 
-              href={`/dashboard/activity?sessionId=${researchSession.id}`}
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <Activity className="h-4 w-4" />
-              View detailed activity log
-            </Link>
-          </div>
         </div>
       </main>
     </div>
