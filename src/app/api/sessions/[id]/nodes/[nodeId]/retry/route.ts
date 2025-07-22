@@ -16,6 +16,10 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get optional parameter to retry all tasks
+    const body = await req.json().catch(() => ({}))
+    const { retryAll = false } = body
+
     // Verify ownership
     const node = await prisma.researchNode.findFirst({
       where: { 
@@ -26,7 +30,7 @@ export async function POST(
         },
       },
       include: {
-        tasks: {
+        tasks: retryAll ? true : {
           where: {
             status: "failed",
           },
@@ -41,43 +45,79 @@ export async function POST(
       )
     }
 
-    // Reset failed tasks
-    await prisma.researchTask.updateMany({
-      where: {
-        nodeId: nodeId,
-        status: "failed",
-      },
-      data: {
-        status: "pending",
-        retryCount: {
-          increment: 1,
+    // Determine which tasks to retry
+    const tasksToRetry = retryAll ? node.tasks : node.tasks.filter((t: any) => t.status === 'failed')
+    const taskIds = tasksToRetry.map((t: any) => t.id)
+
+    if (taskIds.length === 0) {
+      return NextResponse.json({
+        message: "No tasks to retry",
+        retriedTasks: 0,
+      })
+    }
+
+    // Reset tasks based on retry mode
+    if (retryAll) {
+      // If retrying all, delete any existing generated table to avoid conflicts
+      await prisma.generatedTable.deleteMany({
+        where: { nodeId: nodeId }
+      })
+      
+      // Reset all tasks to pending
+      await prisma.researchTask.updateMany({
+        where: {
+          nodeId: nodeId,
         },
-      },
-    })
+        data: {
+          status: "pending",
+          errorMessage: null,
+          openaiResponse: null,
+          startedAt: null,
+          completedAt: null,
+          retryCount: {
+            increment: 1,
+          },
+        },
+      })
+    } else {
+      // Reset only failed tasks
+      await prisma.researchTask.updateMany({
+        where: {
+          nodeId: nodeId,
+          status: "failed",
+        },
+        data: {
+          status: "pending",
+          errorMessage: null,
+          retryCount: {
+            increment: 1,
+          },
+        },
+      })
+    }
 
     // Update node status
     await prisma.researchNode.update({
       where: { id: nodeId },
       data: {
         status: "processing",
+        errorMessage: null,
+        completedAt: null,
+      },
+    })
+    
+    // Trigger batch processing for the tasks
+    await inngest.send({
+      name: "research/batch.created",
+      data: {
+        nodeId: nodeId,
+        tasks: taskIds,
       },
     })
 
-    // Retrigger processing for failed tasks
-    const failedTaskIds = node.tasks.map((t: any) => t.id)
-    
-    if (failedTaskIds.length > 0) {
-      await inngest.send({
-        name: "research/batch.created",
-        data: {
-          nodeId: nodeId,
-          tasks: failedTaskIds,
-        },
-      })
-    }
-
     return NextResponse.json({
-      retriedTasks: failedTaskIds.length,
+      retriedTasks: taskIds.length,
+      retryAll: retryAll,
     })
   } catch (error) {
     console.error("Failed to retry tasks:", error)

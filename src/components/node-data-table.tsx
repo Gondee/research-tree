@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, FileText, ExternalLink, Layers } from 'lucide-react'
+import { Loader2, FileText, ExternalLink, Layers, RefreshCw } from 'lucide-react'
 import { NextLevelResearchModal } from './next-level-research-modal'
 import { ErrorBoundary } from './error-boundary'
 import { SafeTableRenderer } from './safe-table-renderer'
@@ -38,6 +38,7 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
   const [nodeData, setNodeData] = useState<NodeData | null>(null)
   const [activeTab, setActiveTab] = useState<'research' | 'table'>('research')
   const [showNextLevelModal, setShowNextLevelModal] = useState(false)
+  const [isRetrying, setIsRetrying] = useState(false)
 
   useEffect(() => {
     loadNodeData()
@@ -56,6 +57,40 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
       setIsLoading(false)
     }
   }
+
+  const handleRetry = async (retryAll = false) => {
+    if (!sessionId || !nodeData) return
+    
+    setIsRetrying(true)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/nodes/${nodeId}/retry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ retryAll }),
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        console.log(`Retrying ${data.retriedTasks} tasks (retryAll: ${data.retryAll})`)
+        
+        // Refresh the node data
+        await loadNodeData()
+        
+        // Refresh the entire page to update the tree
+        router.refresh()
+      } else {
+        console.error('Failed to retry tasks')
+      }
+    } catch (error) {
+      console.error('Error retrying tasks:', error)
+    } finally {
+      setIsRetrying(false)
+    }
+  }
+
+  const handleRetryAll = () => handleRetry(true)
 
   if (isLoading) {
     return (
@@ -79,10 +114,35 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
       <div className="space-y-4">
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
-            <CardTitle className="text-red-700">Research Failed</CardTitle>
-            <CardDescription className="text-red-600">
-              {nodeData.errorMessage || 'An error occurred during research processing'}
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-red-700">Research Failed</CardTitle>
+                <CardDescription className="text-red-600">
+                  {nodeData.errorMessage || 'An error occurred during research processing'}
+                </CardDescription>
+              </div>
+              {sessionId && (
+                <Button
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {isRetrying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Retry Failed Tasks
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-red-600 mb-4">
@@ -135,6 +195,31 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
       {/* Content */}
       {activeTab === 'research' && nodeData && (
         <div className="space-y-4">
+          {/* Retry button for completed nodes */}
+          {nodeData.status === 'completed' && sessionId && (
+            <div className="flex justify-end">
+              <Button
+                onClick={() => handleRetryAll()}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isRetrying}
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Regenerate Research
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+          
           {(!nodeData.tasks || !Array.isArray(nodeData.tasks) || nodeData.tasks.length === 0) ? (
             <p className="text-center text-muted-foreground py-8">No research tasks available</p>
           ) : (
