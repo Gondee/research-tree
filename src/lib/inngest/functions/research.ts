@@ -184,6 +184,8 @@ export const batchProcessResearch = inngest.createFunction(
   { event: "research/batch.created" },
   async ({ event, step }) => {
     const { nodeId, tasks } = event.data
+    
+    console.log(`Batch processing ${tasks.length} tasks for node ${nodeId}`)
 
     // Update node status
     await step.run("update-node-processing", async () => {
@@ -197,18 +199,19 @@ export const batchProcessResearch = inngest.createFunction(
     })
 
     // Trigger all tasks in parallel
-    await step.run("trigger-all-tasks", async () => {
-      // Create all event promises
-      const eventPromises = tasks.map((taskId: string, index: number) => 
-        step.sendEvent(`trigger-task-${index}`, {
-          name: "research/task.created",
-          data: { taskId, nodeId },
-        })
-      )
-      
-      // Send all events in parallel
-      await Promise.all(eventPromises)
-    })
+    console.log(`Triggering ${tasks.length} research tasks in parallel`)
+    
+    // Send all events in parallel (outside of step.run)
+    const eventPromises = tasks.map((taskId: string, index: number) => 
+      step.sendEvent(`trigger-task-${index}`, {
+        name: "research/task.created",
+        data: { taskId, nodeId },
+      })
+    )
+    
+    await Promise.all(eventPromises)
+    
+    console.log(`All ${tasks.length} task events sent`)
 
     return { nodeId, tasksTriggered: tasks.length }
   }

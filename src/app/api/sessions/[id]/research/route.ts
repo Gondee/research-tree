@@ -82,9 +82,11 @@ export async function POST(
           : parentNode.generatedTable.tableData
         
         // Extract rows from the table data
-        const rows = tableData.data || tableData // Handle both structured and simple array formats
+        console.log('Parent table data structure:', tableData)
+        const rows = tableData.tableData || tableData.data || tableData // Handle Gemini format, alternative format, or simple array
         
         if (Array.isArray(rows)) {
+          console.log(`Creating ${rows.length} tasks for table rows`)
           // Create a task for each row
           tasks = await Promise.all(
             rows.map(async (row, index) => {
@@ -96,6 +98,8 @@ export async function POST(
                 const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
                 prompt = prompt.replace(regex, row[key] || '')
               })
+              
+              console.log(`Task ${index}: ${prompt.substring(0, 100)}...`)
 
               return prisma.researchTask.create({
                 data: {
@@ -107,6 +111,8 @@ export async function POST(
               })
             })
           )
+        } else {
+          console.log('No rows found in parent table data')
         }
       }
     } else {
