@@ -60,6 +60,35 @@ export const processResearchTask = inngest.createFunction(
             completedAt: new Date(),
           },
         })
+        
+        // Check if this was the last task for the node
+        const remainingTasks = await prisma.researchTask.count({
+          where: {
+            nodeId,
+            status: { in: ["pending", "processing"] },
+            id: { not: taskId }, // Exclude current task
+          },
+        })
+        
+        // If no more pending tasks, update node status
+        if (remainingTasks === 0) {
+          const failedTaskCount = await prisma.researchTask.count({
+            where: {
+              nodeId,
+              status: "failed",
+            },
+          })
+          
+          await prisma.researchNode.update({
+            where: { id: nodeId },
+            data: {
+              status: "failed",
+              completedAt: new Date(),
+              errorMessage: `${failedTaskCount} task(s) failed during processing`,
+            },
+          })
+        }
+        
         throw error
       }
     })

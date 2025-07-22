@@ -20,6 +20,7 @@ import {
   FileDown,
   RefreshCw
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface SessionPageProps {
   params: Promise<{ id: string }>
@@ -55,6 +56,7 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [researchSession, setResearchSession] = useState<ResearchSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState('tree')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
@@ -83,8 +85,15 @@ export default function SessionPage({ params }: SessionPageProps) {
     }) || []
     const hasActiveTasks = allTasks.some(t => t.status === 'pending' || t.status === 'processing')
     
-    if (hasActiveTasks) {
+    // Also check if any nodes are processing
+    const hasActiveNodes = researchSession.nodes?.some(node => 
+      node.status === 'pending' || node.status === 'processing'
+    ) || false
+    
+    if (hasActiveTasks || hasActiveNodes) {
+      console.log('Auto-refresh enabled: active tasks or nodes detected')
       const interval = setInterval(() => {
+        console.log('Auto-refreshing session data...')
         loadSession()
       }, 5000) // Poll every 5 seconds
       
@@ -94,6 +103,11 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   const loadSession = async () => {
     if (!sessionId) return
+    
+    // Set refreshing state only if already loaded
+    if (!isLoading) {
+      setIsRefreshing(true)
+    }
     
     try {
       const res = await fetch(`/api/sessions/${sessionId}`)
@@ -111,6 +125,7 @@ export default function SessionPage({ params }: SessionPageProps) {
       console.error('Failed to load session:', error)
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -182,15 +197,24 @@ export default function SessionPage({ params }: SessionPageProps) {
                 </div>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              {isRefreshing && (
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Updating...
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                className="gap-2"
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </header>

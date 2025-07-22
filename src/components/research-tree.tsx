@@ -32,6 +32,29 @@ export function ResearchTree({ sessionId, onNodeSelect }: ResearchTreeProps) {
     loadNodes()
   }, [sessionId])
 
+  // Auto-refresh when there are active nodes
+  useEffect(() => {
+    if (!nodes || nodes.length === 0) return
+
+    // Check if any nodes are still processing
+    const hasActiveNodes = (nodeList: TreeNode[]): boolean => {
+      for (const node of nodeList) {
+        if (node.status === 'pending' || node.status === 'processing') return true
+        if (node.children && hasActiveNodes(node.children)) return true
+      }
+      return false
+    }
+
+    if (hasActiveNodes(nodes)) {
+      console.log('ResearchTree: Auto-refresh enabled')
+      const interval = setInterval(() => {
+        loadNodes()
+      }, 3000) // Poll every 3 seconds for more responsive UI
+
+      return () => clearInterval(interval)
+    }
+  }, [nodes, sessionId])
+
   const loadNodes = async () => {
     try {
       const res = await fetch(`/api/sessions/${sessionId}`)
