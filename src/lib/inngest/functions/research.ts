@@ -76,29 +76,61 @@ export const processResearchTask = inngest.createFunction(
       })
     })
 
-    // Step 5: Check if all tasks for the node are complete
-    const allTasksComplete = await step.run("check-node-completion", async () => {
-      const incompleteTasks = await prisma.researchTask.count({
-        where: {
-          nodeId,
-          status: { in: ["pending", "processing"] },
-        },
-      })
-      console.log(`Node ${nodeId}: ${incompleteTasks} incomplete tasks remaining`)
-      return incompleteTasks === 0
+    // Step 5: Check if all tasks for the node are complete or failed
+    const { allTasksComplete, hasFailedTasks, failedCount } = await step.run("check-node-completion", async () => {
+      const [incompleteTasks, failedTasks, totalTasks] = await Promise.all([
+        prisma.researchTask.count({
+          where: {
+            nodeId,
+            status: { in: ["pending", "processing"] },
+          },
+        }),
+        prisma.researchTask.count({
+          where: {
+            nodeId,
+            status: "failed",
+          },
+        }),
+        prisma.researchTask.count({
+          where: { nodeId },
+        }),
+      ])
+      
+      console.log(`Node ${nodeId}: ${incompleteTasks} incomplete, ${failedTasks} failed, ${totalTasks} total`)
+      return {
+        allTasksComplete: incompleteTasks === 0,
+        hasFailedTasks: failedTasks > 0,
+        failedCount: failedTasks,
+      }
     })
 
-    // Step 6: If all tasks complete, trigger table generation
+    // Step 6: Handle completion or failure
     if (allTasksComplete) {
-      console.log(`All tasks complete for node ${nodeId}, triggering table generation`)
-      
-      // Don't update node status to completed here - let the table generation do it
-      await step.sendEvent("trigger-table-gen", {
-        name: "table/generation.requested",
-        data: { nodeId },
-      })
+      if (hasFailedTasks) {
+        console.log(`Node ${nodeId} has ${failedCount} failed tasks, marking as partially failed`)
+        
+        // Update node status to failed
+        await step.run("update-node-failed", async () => {
+          return await prisma.researchNode.update({
+            where: { id: nodeId },
+            data: {
+              status: "failed",
+              completedAt: new Date(),
+              errorMessage: `${failedCount} task(s) failed during processing`,
+            },
+          })
+        })
+      } else {
+        console.log(`All tasks complete for node ${nodeId}, triggering table generation`)
+        
+        // All tasks succeeded - trigger table generation
+        await step.sendEvent("trigger-table-gen", {
+          name: "table/generation.requested",
+          data: { nodeId },
+        })
+      }
     } else {
-      console.log(`Not all tasks complete for node ${nodeId}, skipping table generation`)
+      console.log(`Not all tasks complete for node ${nodeId}, waiting...`)
     }
 
     return { taskId, status: "completed" }
@@ -116,22 +148,23 @@ export const generateTable = inngest.createFunction(
     
     console.log(`Table generation started for node ${nodeId}`)
 
-    // Step 1: Get node and its configuration
-    const node = await step.run("get-node", async () => {
-      return await prisma.researchNode.findUnique({
-        where: { id: nodeId },
-        include: {
-          tasks: true,
-          tableConfig: true,
-        },
+    try {
+      // Step 1: Get node and its configuration
+      const node = await step.run("get-node", async () => {
+        return await prisma.researchNode.findUnique({
+          where: { id: nodeId },
+          include: {
+            tasks: true,
+            tableConfig: true,
+          },
+        })
       })
-    })
 
-    if (!node || !node.tableConfig) {
-      throw new Error(`Node ${nodeId} or table config not found`)
-    }
-    
-    console.log(`Found ${node.tasks.length} tasks for node ${nodeId}`)
+      if (!node || !node.tableConfig) {
+        throw new Error(`Node ${nodeId} or table config not found`)
+      }
+      
+      console.log(`Found ${node.tasks.length} tasks for node ${nodeId}`)
 
     // Step 2: Collect all research outputs
     const researchOutputs = await step.run("collect-outputs", async () => {
@@ -170,7 +203,24 @@ export const generateTable = inngest.createFunction(
       })
     })
 
-    return { nodeId, tableGenerated: true }
+      return { nodeId, tableGenerated: true }
+    } catch (error) {
+      console.error(`Table generation failed for node ${nodeId}:`, error)
+      
+      // Update node status to failed
+      await step.run("update-node-failed-table-gen", async () => {
+        return await prisma.researchNode.update({
+          where: { id: nodeId },
+          data: {
+            status: "failed",
+            completedAt: new Date(),
+            errorMessage: `Table generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        })
+      })
+      
+      throw error
+    }
   }
 )
 

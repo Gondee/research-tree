@@ -52,6 +52,7 @@ model ResearchNode {
   promptTemplate String
   modelId        String   @default("gpt-4o")
   status         String   @default("pending") // pending, processing, completed, failed
+  errorMessage   String?  // Error description if status is failed
   tasks          ResearchTask[]
   tableConfig    TableConfig?
   generatedTable GeneratedTable?

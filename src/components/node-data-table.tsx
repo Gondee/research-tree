@@ -8,6 +8,7 @@ import { Loader2, FileText, ExternalLink, Layers } from 'lucide-react'
 import { NextLevelResearchModal } from './next-level-research-modal'
 import { ErrorBoundary } from './error-boundary'
 import { SafeTableRenderer } from './safe-table-renderer'
+import { cn } from '@/lib/utils'
 
 interface NodeDataTableProps {
   nodeId: string
@@ -18,6 +19,7 @@ interface NodeData {
   id: string
   promptTemplate: string
   status: string
+  errorMessage?: string
   tasks: Array<{
     id: string
     prompt: string
@@ -67,6 +69,43 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground">No data available for this node</p>
+      </div>
+    )
+  }
+
+  // Show error state if node failed
+  if (nodeData.status === 'failed') {
+    return (
+      <div className="space-y-4">
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-700">Research Failed</CardTitle>
+            <CardDescription className="text-red-600">
+              {nodeData.errorMessage || 'An error occurred during research processing'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-red-600 mb-4">
+              Some or all tasks in this research node failed to complete. Check the details below for more information.
+            </p>
+            {nodeData.tasks && nodeData.tasks.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Task Status:</h4>
+                {nodeData.tasks.map((task, index) => (
+                  <div key={task.id} className="flex items-center justify-between text-sm p-2 rounded bg-white">
+                    <span>Task #{index + 1}</span>
+                    <span className={cn(
+                      "px-2 py-1 rounded text-xs",
+                      task.status === 'failed' ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                    )}>
+                      {task.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     )
   }

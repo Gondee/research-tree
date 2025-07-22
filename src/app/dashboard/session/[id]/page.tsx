@@ -327,6 +327,14 @@ export default function SessionPage({ params }: SessionPageProps) {
                                   </p>
                                 </div>
                               )}
+                              {task.status === 'failed' && task.errorMessage && (
+                                <div className="mt-2 p-2 bg-red-50 rounded-md">
+                                  <p className="text-xs font-medium mb-1 text-red-700">Error:</p>
+                                  <p className="text-xs text-red-600">
+                                    {task.errorMessage}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           <div className="text-sm">
                             <span className={`
