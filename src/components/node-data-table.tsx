@@ -8,7 +8,7 @@ import { Loader2, FileText, ExternalLink, Layers, RefreshCw } from 'lucide-react
 import { NextLevelResearchModal } from './next-level-research-modal'
 import { ErrorBoundary } from './error-boundary'
 import { SafeTableRenderer } from './safe-table-renderer'
-import { ExcelTableViewerEnhanced } from './excel-table-viewer-enhanced'
+import { ExcelTableCompact } from './excel-table-compact'
 import { cn } from '@/lib/utils'
 
 interface NodeDataTableProps {
@@ -300,9 +300,9 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="p-4">
-              <ExcelTableViewerEnhanced 
+          <CardContent className="p-2">
+            <div className="h-[600px]">
+              <ExcelTableCompact 
                 tableData={nodeData.generatedTable?.tableData} 
                 sessionName={nodeData.promptTemplate?.slice(0, 50) || 'research-data'}
               />
