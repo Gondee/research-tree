@@ -2,6 +2,7 @@ import { inngest } from "../client"
 import { prisma } from "@/lib/prisma"
 import { openAIClient } from "@/lib/openai-client"
 import { geminiClient } from "@/lib/gemini-client"
+import { ActivityLogger } from "@/lib/activity-logger"
 
 export const processResearchTask = inngest.createFunction(
   {
@@ -21,7 +22,11 @@ export const processResearchTask = inngest.createFunction(
       return await prisma.researchTask.findUnique({
         where: { id: taskId },
         include: {
-          node: true
+          node: {
+            include: {
+              session: true
+            }
+          }
         }
       })
     })
@@ -32,6 +37,14 @@ export const processResearchTask = inngest.createFunction(
 
     // Step 2: Update task status to processing
     await step.run("update-status-processing", async () => {
+      await ActivityLogger.taskStarted(
+        task.node.session.id,
+        task.nodeId,
+        task.id,
+        task.rowIndex,
+        task.node.level
+      )
+      
       return await prisma.researchTask.update({
         where: { id: taskId },
         data: {
@@ -52,11 +65,22 @@ export const processResearchTask = inngest.createFunction(
         })
       } catch (error) {
         // Update task with error
+        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        
+        await ActivityLogger.taskFailed(
+          task.node.session.id,
+          task.nodeId,
+          task.id,
+          task.rowIndex,
+          task.node.level,
+          errorMessage
+        )
+        
         await prisma.researchTask.update({
           where: { id: taskId },
           data: {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
+            errorMessage: errorMessage,
             completedAt: new Date(),
           },
         })
@@ -95,6 +119,14 @@ export const processResearchTask = inngest.createFunction(
 
     // Step 4: Save research results
     await step.run("save-results", async () => {
+      await ActivityLogger.taskCompleted(
+        task.node.session.id,
+        task.nodeId,
+        task.id,
+        task.rowIndex,
+        task.node.level
+      )
+      
       return await prisma.researchTask.update({
         where: { id: taskId },
         data: {
@@ -140,6 +172,13 @@ export const processResearchTask = inngest.createFunction(
         
         // Update node status to failed
         await step.run("update-node-failed", async () => {
+          await ActivityLogger.nodeFailed(
+            task.node.session.id,
+            nodeId,
+            task.node.level,
+            failedCount
+          )
+          
           return await prisma.researchNode.update({
             where: { id: nodeId },
             data: {
@@ -176,15 +215,18 @@ export const generateTable = inngest.createFunction(
     const { nodeId } = event.data
     
     console.log(`Table generation started for node ${nodeId}`)
+    
+    let node: any = null
 
     try {
       // Step 1: Get node and its configuration
-      const node = await step.run("get-node", async () => {
+      node = await step.run("get-node", async () => {
         return await prisma.researchNode.findUnique({
           where: { id: nodeId },
           include: {
             tasks: true,
             tableConfig: true,
+            session: true,
           },
         })
       })
@@ -204,6 +246,12 @@ export const generateTable = inngest.createFunction(
 
     // Step 3: Generate table using Gemini
     const tableResult = await step.run("generate-table", async () => {
+      await ActivityLogger.tableGenerationStarted(
+        node.session.id,
+        node.id,
+        node.level
+      )
+      
       return await geminiClient.generateTable({
         prompt: node.tableConfig!.geminiPrompt,
         context: researchOutputs,
@@ -223,6 +271,35 @@ export const generateTable = inngest.createFunction(
 
     // Step 5: Update node status
     await step.run("update-node-status", async () => {
+      // Count rows in generated table
+      let rowCount = 0
+      try {
+        const parsedTable = typeof tableResult === 'string' ? JSON.parse(tableResult) : tableResult
+        if (parsedTable.tableData && Array.isArray(parsedTable.tableData)) {
+          rowCount = parsedTable.tableData.length
+        } else if (parsedTable.data && Array.isArray(parsedTable.data)) {
+          rowCount = parsedTable.data.length
+        } else if (Array.isArray(parsedTable)) {
+          rowCount = parsedTable.length
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+      
+      await ActivityLogger.tableGenerated(
+        node.session.id,
+        node.id,
+        node.level,
+        rowCount
+      )
+      
+      await ActivityLogger.nodeCompleted(
+        node.session.id,
+        node.id,
+        node.level,
+        node.tasks.length
+      )
+      
       return await prisma.researchNode.update({
         where: { id: nodeId },
         data: {
@@ -238,12 +315,23 @@ export const generateTable = inngest.createFunction(
       
       // Update node status to failed
       await step.run("update-node-failed-table-gen", async () => {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        
+        if (node?.session?.id) {
+          await ActivityLogger.tableGenerationFailed(
+            node.session.id,
+            nodeId,
+            node.level,
+            errorMessage
+          )
+        }
+        
         return await prisma.researchNode.update({
           where: { id: nodeId },
           data: {
             status: "failed",
             completedAt: new Date(),
-            errorMessage: `Table generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            errorMessage: `Table generation failed: ${errorMessage}`,
           },
         })
       })
@@ -270,7 +358,11 @@ export const batchProcessResearch = inngest.createFunction(
     const node = await step.run("get-node-model", async () => {
       return await prisma.researchNode.findUnique({
         where: { id: nodeId },
-        select: { modelId: true }
+        select: { 
+          modelId: true,
+          sessionId: true,
+          level: true 
+        }
       })
     })
     
@@ -286,6 +378,15 @@ export const batchProcessResearch = inngest.createFunction(
 
     // Update node status
     await step.run("update-node-processing", async () => {
+      if (node) {
+        await ActivityLogger.nodeStarted(
+          node.sessionId,
+          nodeId,
+          node.level,
+          tasks.length
+        )
+      }
+      
       return await prisma.researchNode.update({
         where: { id: nodeId },
         data: {

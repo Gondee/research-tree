@@ -34,6 +34,7 @@ model ResearchSession {
   description String?
   status      String   @default("active") // active, completed, archived
   nodes       ResearchNode[]
+  activityLogs ActivityLog[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -106,4 +107,26 @@ model GeneratedTable {
   updatedAt     DateTime @updatedAt
 
   @@index([nodeId])
+}
+
+// Activity logs for tracking all system events
+model ActivityLog {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  nodeId      String?
+  taskId      String?
+  level       Int      @default(0)
+  eventType   String   // task_created, task_started, task_completed, task_failed, task_retry, node_created, node_completed, node_failed, table_generated, table_failed
+  status      String?  // For status changes
+  message     String
+  details     String?  @db.Text
+  metadata    Json?    // Additional structured data
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([nodeId])
+  @@index([taskId])
+  @@index([eventType])
+  @@index([createdAt])
 }

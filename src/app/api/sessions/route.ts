@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ActivityLogger } from "@/lib/activity-logger"
 
 export async function GET() {
   try {
@@ -55,6 +56,13 @@ export async function POST(req: Request) {
         description,
       },
     })
+    
+    // Log session creation
+    await ActivityLogger.sessionCreated(
+      researchSession.id,
+      name,
+      description
+    )
 
     return NextResponse.json(researchSession)
   } catch (error) {

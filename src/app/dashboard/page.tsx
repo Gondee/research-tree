@@ -22,7 +22,8 @@ import {
   TreePine,
   LogOut,
   MoreVertical,
-  Trash2
+  Trash2,
+  Activity
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { formatDate } from '@/lib/utils'
@@ -146,12 +147,20 @@ export default function DashboardPage() {
                 Create and manage your hierarchical research projects
               </p>
             </div>
-            <Link href="/dashboard/new">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Research
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/dashboard/activity">
+                <Button variant="outline" className="gap-2">
+                  <Activity className="h-4 w-4" />
+                  Activity Log
+                </Button>
+              </Link>
+              <Link href="/dashboard/new">
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Research
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Sessions Grid */}

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { inngest } from "@/lib/inngest/client"
+import { ActivityLogger } from "@/lib/activity-logger"
 
 export async function POST(
   req: Request,
@@ -55,6 +56,14 @@ export async function POST(
         status: "pending",
       },
     })
+    
+    // Log node creation
+    await ActivityLogger.nodeCreated(
+      id,
+      node.id,
+      level,
+      promptTemplate
+    )
 
     // Create table config
     await prisma.tableConfig.create({
@@ -106,7 +115,7 @@ export async function POST(
               
               console.log(`Final prompt ${index}: ${prompt}`)
 
-              return prisma.researchTask.create({
+              const task = await prisma.researchTask.create({
                 data: {
                   nodeId: node.id,
                   rowIndex: index,
@@ -114,6 +123,17 @@ export async function POST(
                   status: "pending",
                 },
               })
+              
+              // Log task creation
+              await ActivityLogger.taskCreated(
+                id,
+                node.id,
+                task.id,
+                index,
+                prompt
+              )
+              
+              return task
             })
           )
         } else {
@@ -130,6 +150,16 @@ export async function POST(
           status: "pending",
         },
       })
+      
+      // Log task creation
+      await ActivityLogger.taskCreated(
+        id,
+        node.id,
+        task.id,
+        0,
+        promptTemplate
+      )
+      
       tasks = [task]
     }
 

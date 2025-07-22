@@ -18,8 +18,7 @@ import {
   Table,
   Activity,
   FileDown,
-  RefreshCw,
-  FileText
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -55,17 +54,6 @@ interface ResearchSession {
   }>
 }
 
-interface ActivityEvent {
-  id: string
-  timestamp: Date
-  type: 'task_started' | 'task_completed' | 'task_failed' | 'task_retry' | 'node_completed' | 'node_failed'
-  taskId?: string
-  nodeId?: string
-  level: number
-  message: string
-  details?: string
-}
-
 export default function SessionPage({ params }: SessionPageProps) {
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -75,8 +63,6 @@ export default function SessionPage({ params }: SessionPageProps) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState('tree')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([])
-  const [previousTaskStates, setPreviousTaskStates] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     params.then(p => setSessionId(p.id))
@@ -131,12 +117,6 @@ export default function SessionPage({ params }: SessionPageProps) {
       const res = await fetch(`/api/sessions/${sessionId}`)
       if (res.ok) {
         const data = await res.json()
-        
-        // Generate activity events from task changes
-        if (researchSession && data.nodes) {
-          generateActivityEvents(researchSession, data)
-        }
-        
         setResearchSession(data)
         // Select first node by default if available
         if (data.nodes && data.nodes.length > 0 && !selectedNodeId) {
@@ -151,111 +131,6 @@ export default function SessionPage({ params }: SessionPageProps) {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }
-
-  const generateActivityEvents = (oldSession: ResearchSession, newSession: ResearchSession) => {
-    const newEvents: ActivityEvent[] = []
-    const currentTaskStates = new Map(previousTaskStates)
-    
-    // Check all tasks for status changes
-    newSession.nodes?.forEach(node => {
-      node.tasks?.forEach(task => {
-        const previousStatus = currentTaskStates.get(task.id)
-        const currentStatus = task.status
-        
-        // Task status changed
-        if (previousStatus !== currentStatus) {
-          let event: ActivityEvent | null = null
-          
-          if (currentStatus === 'processing' && previousStatus !== 'processing') {
-            event = {
-              id: `${task.id}-started-${Date.now()}`,
-              timestamp: new Date(),
-              type: 'task_started',
-              taskId: task.id,
-              nodeId: node.id,
-              level: node.level,
-              message: `Task #${task.rowIndex + 1} started processing`,
-              details: task.prompt?.substring(0, 100) + '...'
-            }
-          } else if (currentStatus === 'completed' && previousStatus !== 'completed') {
-            event = {
-              id: `${task.id}-completed-${Date.now()}`,
-              timestamp: new Date(),
-              type: 'task_completed',
-              taskId: task.id,
-              nodeId: node.id,
-              level: node.level,
-              message: `Task #${task.rowIndex + 1} completed successfully`,
-              details: 'Research data collected'
-            }
-          } else if (currentStatus === 'failed' && previousStatus !== 'failed') {
-            event = {
-              id: `${task.id}-failed-${Date.now()}`,
-              timestamp: new Date(),
-              type: 'task_failed',
-              taskId: task.id,
-              nodeId: node.id,
-              level: node.level,
-              message: `Task #${task.rowIndex + 1} failed`,
-              details: task.errorMessage || 'Unknown error'
-            }
-          } else if (currentStatus === 'pending' && previousStatus === 'failed') {
-            event = {
-              id: `${task.id}-retry-${Date.now()}`,
-              timestamp: new Date(),
-              type: 'task_retry',
-              taskId: task.id,
-              nodeId: node.id,
-              level: node.level,
-              message: `Task #${task.rowIndex + 1} queued for retry (attempt ${(task.retryCount || 0) + 1})`,
-              details: 'Task reset and queued for processing'
-            }
-          }
-          
-          if (event) {
-            newEvents.push(event)
-          }
-          
-          // Update the state map
-          currentTaskStates.set(task.id, currentStatus)
-        }
-      })
-      
-      // Check for node status changes
-      const oldNode = oldSession.nodes?.find(n => n.id === node.id)
-      if (oldNode && oldNode.status !== node.status) {
-        if (node.status === 'completed') {
-          newEvents.push({
-            id: `${node.id}-completed-${Date.now()}`,
-            timestamp: new Date(),
-            type: 'node_completed',
-            nodeId: node.id,
-            level: node.level,
-            message: `Level ${node.level} research completed`,
-            details: 'All tasks finished successfully'
-          })
-        } else if (node.status === 'failed') {
-          newEvents.push({
-            id: `${node.id}-failed-${Date.now()}`,
-            timestamp: new Date(),
-            type: 'node_failed',
-            nodeId: node.id,
-            level: node.level,
-            message: `Level ${node.level} research failed`,
-            details: 'One or more tasks failed'
-          })
-        }
-      }
-    })
-    
-    // Add new events to the beginning of the array (newest first)
-    if (newEvents.length > 0) {
-      setActivityEvents(prev => [...newEvents, ...prev])
-    }
-    
-    // Update the previous states map
-    setPreviousTaskStates(currentTaskStates)
   }
 
   const handleRefresh = () => {
@@ -359,7 +234,7 @@ export default function SessionPage({ params }: SessionPageProps) {
 
           {/* Main Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="tree" className="gap-2">
                 <TreePine className="h-4 w-4" />
                 Research Tree
@@ -367,10 +242,6 @@ export default function SessionPage({ params }: SessionPageProps) {
               <TabsTrigger value="data" className="gap-2">
                 <Table className="h-4 w-4" />
                 Data Tables
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="gap-2">
-                <Activity className="h-4 w-4" />
-                Activity Log
               </TabsTrigger>
             </TabsList>
 
@@ -433,101 +304,18 @@ export default function SessionPage({ params }: SessionPageProps) {
                 )}
               </ErrorBoundary>
             </TabsContent>
-
-            <TabsContent value="activity" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Activity Log</CardTitle>
-                      <CardDescription>
-                        Live feed of all research activity
-                      </CardDescription>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {activityEvents.length} events
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                    {activityEvents.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No activity yet. Start a research task to see events appear here.
-                      </p>
-                    ) : (
-                      activityEvents.map((event) => (
-                        <div 
-                          key={event.id} 
-                          className={cn(
-                            "flex items-start gap-3 p-3 border rounded-lg transition-colors",
-                            event.type === 'task_started' && "border-blue-200 bg-blue-50/50",
-                            event.type === 'task_completed' && "border-green-200 bg-green-50/50",
-                            event.type === 'task_failed' && "border-red-200 bg-red-50/50",
-                            event.type === 'task_retry' && "border-yellow-200 bg-yellow-50/50",
-                            event.type === 'node_completed' && "border-green-300 bg-green-100/50",
-                            event.type === 'node_failed' && "border-red-300 bg-red-100/50"
-                          )}
-                        >
-                          <div className="flex-shrink-0">
-                            {event.type === 'task_started' && (
-                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                              </div>
-                            )}
-                            {event.type === 'task_completed' && (
-                              <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                                <FileText className="h-4 w-4 text-green-600" />
-                              </div>
-                            )}
-                            {event.type === 'task_failed' && (
-                              <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-                                <Activity className="h-4 w-4 text-red-600" />
-                              </div>
-                            )}
-                            {event.type === 'task_retry' && (
-                              <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <RefreshCw className="h-4 w-4 text-yellow-600" />
-                              </div>
-                            )}
-                            {(event.type === 'node_completed' || event.type === 'node_failed') && (
-                              <div className={cn(
-                                "h-8 w-8 rounded-full flex items-center justify-center",
-                                event.type === 'node_completed' ? "bg-green-200" : "bg-red-200"
-                              )}>
-                                <TreePine className={cn(
-                                  "h-4 w-4",
-                                  event.type === 'node_completed' ? "text-green-700" : "text-red-700"
-                                )} />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="font-medium text-sm">
-                                {event.message}
-                              </p>
-                              <time className="text-xs text-muted-foreground flex-shrink-0">
-                                {new Date(event.timestamp).toLocaleTimeString()}
-                              </time>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Level {event.level}
-                            </p>
-                            {event.details && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                {event.details}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
+          
+          {/* Activity Log Link */}
+          <div className="mt-6 text-center">
+            <Link 
+              href={`/dashboard/activity?sessionId=${researchSession.id}`}
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <Activity className="h-4 w-4" />
+              View detailed activity log
+            </Link>
+          </div>
         </div>
       </main>
     </div>

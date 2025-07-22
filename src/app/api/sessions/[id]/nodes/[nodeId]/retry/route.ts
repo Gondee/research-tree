@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { inngest } from "@/lib/inngest/client"
+import { ActivityLogger } from "@/lib/activity-logger"
 
 export async function POST(
   req: Request,
@@ -79,6 +80,18 @@ export async function POST(
           },
         },
       })
+      
+      // Log retry for all tasks
+      for (const task of tasksToRetry) {
+        await ActivityLogger.taskRetry(
+          id,
+          nodeId,
+          task.id,
+          task.rowIndex,
+          node.level,
+          (task.retryCount || 0) + 1
+        )
+      }
     } else {
       // Reset only failed tasks
       await prisma.researchTask.updateMany({
@@ -94,6 +107,18 @@ export async function POST(
           },
         },
       })
+      
+      // Log retry for failed tasks
+      for (const task of tasksToRetry) {
+        await ActivityLogger.taskRetry(
+          id,
+          nodeId,
+          task.id,
+          task.rowIndex,
+          node.level,
+          (task.retryCount || 0) + 1
+        )
+      }
     }
 
     // Update node status
