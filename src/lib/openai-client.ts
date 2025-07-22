@@ -147,7 +147,7 @@ export class OpenAIClient {
 
       // Extract the final output
       const output = response.output || []
-      const lastOutput = output[output.length - 1]
+      const lastOutput = output[output.length - 1] as any
       const content = lastOutput?.content?.[0]?.text || ''
 
       // Extract sources from annotations if available
