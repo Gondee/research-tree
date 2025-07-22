@@ -18,7 +18,8 @@ import {
   Table,
   Activity,
   FileDown,
-  RefreshCw
+  RefreshCw,
+  FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
