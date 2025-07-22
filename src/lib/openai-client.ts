@@ -6,6 +6,16 @@ interface DeepResearchRequest {
   includeSources?: boolean
 }
 
+interface RateLimitError {
+  status: number
+  headers?: {
+    'x-ratelimit-limit-requests'?: string
+    'x-ratelimit-remaining-requests'?: string
+    'x-ratelimit-reset-requests'?: string
+    'retry-after'?: string
+  }
+}
+
 interface DeepResearchResponse {
   content: string
   sources?: Array<{
@@ -47,31 +57,37 @@ export class OpenAIClient {
     try {
       // Check if this is a deep research model that requires the responses endpoint
       if (model.includes('deep-research')) {
+        console.log(`Using /v1/responses endpoint for model: ${model}`)
+        // Note: Deep research models have specific rate limits:
+        // - Free users: 5 queries/month
+        // - Plus/Team: 25 queries/month
+        // - Pro users: 250 queries/month
         return this.deepResearchV2({ prompt, maxTime, includeSources, model })
       }
 
       // Otherwise use the standard chat completions endpoint
-      const startTime = Date.now()
-      
-      // Use the selected model for research
-      const response = await this.client.chat.completions.create({
-        model: model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
-            Provide detailed, well-structured information with citations where possible.
-            Focus on accuracy, comprehensiveness, and clarity.
-            ${includeSources ? 'Include source references in your response.' : ''}`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-      })
+      return this.retryWithExponentialBackoff(async () => {
+        const startTime = Date.now()
+        
+        // Use the selected model for research
+        const response = await this.client.chat.completions.create({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
+              Provide detailed, well-structured information with citations where possible.
+              Focus on accuracy, comprehensiveness, and clarity.
+              ${includeSources ? 'Include source references in your response.' : ''}`
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 4000,
+        })
 
       const endTime = Date.now()
       const duration = Math.floor((endTime - startTime) / 1000)
@@ -93,12 +109,13 @@ export class OpenAIClient {
         }))
       }
 
-      return {
-        content,
-        sources,
-        completedAt: new Date().toISOString(),
-        duration,
-      }
+        return {
+          content,
+          sources,
+          completedAt: new Date().toISOString(),
+          duration,
+        }
+      })
     } catch (error) {
       console.error('Deep research failed:', error)
       throw error
@@ -121,26 +138,28 @@ export class OpenAIClient {
       }
 
       // Use the responses endpoint for deep research models
-      const response = await this.client.responses.create({
-        model: model,
-        input: [
-          {
-            role: "developer",
-            content: [{ 
-              type: "input_text", 
-              text: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
-              Provide detailed, well-structured information with citations where possible.
-              Focus on accuracy, comprehensiveness, and clarity.` 
-            }]
-          },
-          {
-            role: "user",
-            content: [{ type: "input_text", text: prompt }]
-          }
-        ],
-        reasoning: { summary: "auto" },
-        tools: includeSources ? [{ type: "web_search_preview" }] : []
-      })
+      const response = await this.retryWithExponentialBackoff(async () => 
+        this.client.responses.create({
+          model: model,
+          input: [
+            {
+              role: "developer",
+              content: [{ 
+                type: "input_text", 
+                text: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
+                Provide detailed, well-structured information with citations where possible.
+                Focus on accuracy, comprehensiveness, and clarity.` 
+              }]
+            },
+            {
+              role: "user",
+              content: [{ type: "input_text", text: prompt }]
+            }
+          ],
+          reasoning: { summary: "auto" },
+          tools: includeSources ? [{ type: "web_search_preview" }] : []
+        })
+      )
 
       const endTime = Date.now()
       const duration = Math.floor((endTime - startTime) / 1000)
@@ -176,13 +195,53 @@ export class OpenAIClient {
     }
   }
 
+  private async retryWithExponentialBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    initialDelay = 1000
+  ): Promise<T> {
+    let lastError: any
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn()
+      } catch (error: any) {
+        lastError = error
+        
+        // Check if it's a rate limit error
+        if (error.status === 429 || error.response?.status === 429) {
+          const retryAfter = error.headers?.['retry-after'] || error.response?.headers?.['retry-after']
+          const delay = retryAfter 
+            ? parseInt(retryAfter) * 1000 
+            : initialDelay * Math.pow(2, i) * (1 + Math.random() * 0.1) // Add jitter
+          
+          console.log(`Rate limit hit. Retrying after ${delay}ms (attempt ${i + 1}/${maxRetries})`)
+          
+          // Log rate limit details if available
+          const headers = error.headers || error.response?.headers || {}
+          if (headers['x-ratelimit-limit-requests']) {
+            console.log(`Rate limits: ${headers['x-ratelimit-remaining-requests']}/${headers['x-ratelimit-limit-requests']} requests remaining`)
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+        
+        // If not a rate limit error, throw immediately
+        throw error
+      }
+    }
+    
+    throw lastError
+  }
+
   private async deepResearchV2Fallback({
     prompt,
     maxTime,
     includeSources,
     model
   }: DeepResearchRequest & { model: string }): Promise<DeepResearchResponse> {
-    try {
+    return this.retryWithExponentialBackoff(async () => {
       const startTime = Date.now()
 
       // Direct API call to responses endpoint
@@ -248,10 +307,7 @@ export class OpenAIClient {
         completedAt: new Date().toISOString(),
         duration,
       }
-    } catch (error) {
-      console.error('Deep research V2 fallback failed:', error)
-      throw error
-    }
+    })
   }
 
   async checkResearchStatus(taskId: string): Promise<{
@@ -298,11 +354,31 @@ export class OpenAIClient {
       console.error('Failed to list models:', error)
       // Return fallback models if API fails
       return [
-        { id: 'o3-deep-research-2025-06-26', name: 'O3 Deep Research', description: 'Optimized for in-depth synthesis and research' },
-        { id: 'o4-mini-deep-research-2025-06-26', name: 'O4 Mini Deep Research', description: 'Lightweight and faster deep research' },
-        { id: 'gpt-4o', name: 'GPT-4 Optimized', description: 'Latest GPT-4 model' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Fast GPT-4 model' },
-        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and efficient' }
+        { 
+          id: 'o3-deep-research-2025-06-26', 
+          name: 'O3 Deep Research', 
+          description: 'Optimized for in-depth synthesis and research (Limited: 5-250 queries/month based on plan)' 
+        },
+        { 
+          id: 'o4-mini-deep-research-2025-06-26', 
+          name: 'O4 Mini Deep Research', 
+          description: 'Lightweight and faster deep research (Limited: 5-250 queries/month based on plan)' 
+        },
+        { 
+          id: 'gpt-4o', 
+          name: 'GPT-4 Optimized', 
+          description: 'Latest GPT-4 model (30K-30M TPM based on tier)' 
+        },
+        { 
+          id: 'gpt-4-turbo', 
+          name: 'GPT-4 Turbo', 
+          description: 'Fast GPT-4 model (30K-30M TPM based on tier)' 
+        },
+        { 
+          id: 'gpt-3.5-turbo', 
+          name: 'GPT-3.5 Turbo', 
+          description: 'Fast and efficient (Higher rate limits)' 
+        }
       ]
     }
   }

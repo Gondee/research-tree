@@ -66,6 +66,11 @@ npm install             # Triggers postinstall which runs prisma generate
 - Cleans API keys with regex to remove whitespace
 - `listModels()` discovers available models dynamically
 - `deepResearch()` accepts model parameter for flexibility
+- **Rate Limit Handling:**
+  - Exponential backoff with jitter for 429 errors
+  - Reads retry-after header from API responses
+  - Logs rate limit details from response headers
+  - Deep research models use /v1/responses endpoint with strict monthly limits
 
 #### Gemini Integration (`src/lib/gemini-client.ts`)
 - Direct REST API calls (no official SDK)
@@ -76,6 +81,7 @@ npm install             # Triggers postinstall which runs prisma generate
 - Step functions for reliability and observability
 - Explicit error handling with status updates
 - Throttling configured (10 tasks/60s)
+- Deep research models: Special batching (3 tasks at a time with 30s delays)
 - Event-driven architecture for chaining operations
 
 ### UI State Management
@@ -118,5 +124,15 @@ No test framework is currently set up. When implementing tests:
 
 1. **Database Queries**: Session endpoint includes nested relations - consider pagination for large datasets
 2. **Polling Interval**: 5-second refresh may be aggressive for many concurrent users
-3. **Parallel Task Limits**: Currently 10 tasks/minute via Inngest throttling
-4. **Model Selection**: Deep research models cost more - consider defaults based on use case
+3. **Rate Limit Management**: 
+   - Standard models: 10 tasks/minute via Inngest throttling
+   - Deep research models: Batched processing (3 tasks at a time with 30s delays)
+   - OpenAI Rate limits vary by model and account tier:
+     - GPT-4o: 30K-30M TPM (Tokens Per Minute) based on tier
+     - Deep Research: 5-250 queries/month based on plan (Free: 5, Plus: 25, Pro: 250)
+   - Monitor x-ratelimit headers in responses
+   - Use exponential backoff for retries
+4. **Model Selection**: 
+   - Deep research models have strict monthly limits
+   - Standard models (GPT-4o) better for high-volume tasks
+   - Consider cost vs quality tradeoffs

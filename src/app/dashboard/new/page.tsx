@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Loader2, TreePine } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ArrowLeft, Loader2, TreePine, AlertCircle } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
 export default function NewResearchPage() {
@@ -208,6 +209,20 @@ export default function NewResearchPage() {
                   <p className="text-xs text-muted-foreground">
                     Choose the AI model for your research. Deep Research models are optimized for comprehensive analysis.
                   </p>
+                  {formData.model.includes('deep-research') && (
+                    <Alert className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        <strong>Rate Limits:</strong> Deep Research models have strict monthly limits:
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>Free accounts: 5 queries/month</li>
+                          <li>Plus/Team accounts: 25 queries/month</li>
+                          <li>Pro accounts: 250 queries/month</li>
+                        </ul>
+                        Consider using GPT-4o for higher volume research tasks.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
 
                 <div className="space-y-2">

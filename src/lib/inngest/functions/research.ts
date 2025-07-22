@@ -265,6 +265,19 @@ export const batchProcessResearch = inngest.createFunction(
     const { nodeId, tasks } = event.data
     
     console.log(`Batch processing ${tasks.length} tasks for node ${nodeId}`)
+    
+    // Get the node to check the model being used
+    const node = await step.run("get-node-model", async () => {
+      return await prisma.researchNode.findUnique({
+        where: { id: nodeId },
+        select: { modelId: true }
+      })
+    })
+    
+    const isDeepResearch = node?.modelId?.includes('deep-research')
+    if (isDeepResearch) {
+      console.log(`Using deep research model with strict rate limits. Processing tasks with delays.`)
+    }
 
     // Update node status
     await step.run("update-node-processing", async () => {
@@ -277,18 +290,41 @@ export const batchProcessResearch = inngest.createFunction(
       })
     })
 
-    // Trigger all tasks in parallel
-    console.log(`Triggering ${tasks.length} research tasks in parallel`)
-    
-    // Send all events in parallel (outside of step.run)
-    const eventPromises = tasks.map((taskId: string, index: number) => 
-      step.sendEvent(`trigger-task-${index}`, {
-        name: "research/task.created",
-        data: { taskId, nodeId },
-      })
-    )
-    
-    await Promise.all(eventPromises)
+    // Trigger tasks with rate limit considerations
+    if (isDeepResearch && tasks.length > 5) {
+      // For deep research models with strict monthly limits, process in smaller batches
+      console.log(`Deep research model detected. Processing ${tasks.length} tasks in batches to respect rate limits`)
+      
+      const batchSize = 3 // Process 3 at a time for deep research
+      for (let i = 0; i < tasks.length; i += batchSize) {
+        const batch = tasks.slice(i, i + batchSize)
+        const batchPromises = batch.map((taskId: string, batchIndex: number) => 
+          step.sendEvent(`trigger-task-${i + batchIndex}`, {
+            name: "research/task.created",
+            data: { taskId, nodeId },
+          })
+        )
+        
+        await Promise.all(batchPromises)
+        
+        // Add delay between batches for deep research models (avoid hitting per-minute limits)
+        if (i + batchSize < tasks.length) {
+          await step.sleep("batch-delay-" + i, "30s") // 30 second delay between batches
+        }
+      }
+    } else {
+      // Standard models can handle more parallel requests
+      console.log(`Triggering ${tasks.length} research tasks in parallel`)
+      
+      const eventPromises = tasks.map((taskId: string, index: number) => 
+        step.sendEvent(`trigger-task-${index}`, {
+          name: "research/task.created",
+          data: { taskId, nodeId },
+        })
+      )
+      
+      await Promise.all(eventPromises)
+    }
     
     console.log(`All ${tasks.length} task events sent`)
 
