@@ -10,7 +10,7 @@ export const generateAggregateTable = inngest.createFunction(
     retries: 2,
     timeouts: {
       start: "2m",
-      finish: "10m",
+      finish: "30m",  // Increased for large aggregate table generation
     },
   },
   { event: "table/aggregate.requested" },
