@@ -13,8 +13,8 @@ export const processResearchTask = inngest.createFunction(
       period: "60s",
     },
     timeouts: {
-      start: "5m",     // Allow 5 minutes to start
-      finish: "2h",    // Allow 2 hours total execution (Inngest max)
+      start: "5m",     // Allow 5 minutes to start  
+      finish: "55m",   // Reduced to 55 minutes to avoid platform timeouts
     },
   },
   { event: "research/task.created" },
@@ -57,8 +57,8 @@ export const processResearchTask = inngest.createFunction(
           taskId: task.id,
           level: task.node.level,
           eventType: "task_started",
-          message: `⚠️ Deep research model detected - this may take up to 2 hours`,
-          details: `Using ${task.node.modelId}. Inngest supports up to 2 hour runtimes for long-running research tasks.`,
+          message: `⚠️ Deep research model detected - this may take 30-50 minutes`,
+          details: `Using ${task.node.modelId}. Note: Very long research tasks may timeout. Consider breaking complex queries into smaller parts.`,
         })
       }
       
@@ -74,9 +74,13 @@ export const processResearchTask = inngest.createFunction(
     // Step 3: Call OpenAI Deep Research
     const researchResult = await step.run("call-openai", async () => {
       try {
+        // For deep research models, use a more conservative timeout
+        const isDeepResearch = task.node.modelId?.includes('deep-research')
+        const maxTime = isDeepResearch ? 3000 : 1800 // 50 minutes for deep, 30 for others
+        
         return await openAIClient.deepResearch({
           prompt: task.prompt,
-          maxTime: 7200, // 2 hours (120 minutes) - Inngest max
+          maxTime: maxTime,
           includeSources: true,
           model: task.node.modelId || 'gpt-4o',
         })
@@ -89,7 +93,7 @@ export const processResearchTask = inngest.createFunction(
         
         // Update task with error
         const errorMessage = isTimeout 
-          ? `Request timed out after 2 hours. This is the maximum runtime supported by Inngest.`
+          ? `Request timed out. Deep research models may exceed Inngest's practical timeout limits. Consider breaking down your research into smaller, more focused queries.`
           : error instanceof Error ? error.message : "Unknown error"
         
         await ActivityLogger.taskFailed(
@@ -434,7 +438,7 @@ export const batchProcessResearch = inngest.createFunction(
     },
     timeouts: {
       start: "5m",
-      finish: "2h",   // Allow 2 hours for batch processing (Inngest max)
+      finish: "55m",   // Reduced to avoid platform timeouts
     },
   },
   { event: "research/batch.created" },

@@ -82,7 +82,8 @@ npm install             # Triggers postinstall which runs prisma generate
 - Explicit error handling with status updates
 - Throttling configured (10 tasks/60s)
 - Reasoning models (o1, o3): Special batching (3 tasks at a time with 15s delays)
-- **Updated**: Inngest supports up to 2 hour runtimes, perfect for deep research models
+- **Timeout Limits**: While Inngest claims 2-hour support, practical limits are ~50-55 minutes before FUNCTION_INVOCATION_TIMEOUT
+- **Deep Research**: Limited to 50-minute chunks; very long tasks should be broken into smaller queries
 - Event-driven architecture for chaining operations
 
 ### UI State Management
