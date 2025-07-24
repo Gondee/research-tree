@@ -533,7 +533,7 @@ export const batchProcessResearch = inngest.createFunction(
         const batch = tasks.slice(i, i + batchSize)
         const batchPromises = batch.map((taskId: string, batchIndex: number) => 
           step.sendEvent(`trigger-task-${i + batchIndex}`, {
-            name: "research/task.created",
+            name: node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created",
             data: { taskId, nodeId },
           })
         )
@@ -551,7 +551,7 @@ export const batchProcessResearch = inngest.createFunction(
       
       const eventPromises = tasks.map((taskId: string, index: number) => 
         step.sendEvent(`trigger-task-${index}`, {
-          name: "research/task.created",
+          name: node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created",
           data: { taskId, nodeId },
         })
       )

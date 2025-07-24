@@ -60,7 +60,7 @@ export class OpenAIClient {
     model = 'gpt-4o'
   }: DeepResearchRequest & { model?: string }): Promise<DeepResearchResponse> {
     try {
-      // Check if this is a reasoning/deep research model that requires the responses endpoint
+      // Check if this is a reasoning model that requires the responses endpoint
       const isReasoningModel = model.includes('o1') || model.includes('o3') || 
                               model.includes('o4')
       
@@ -71,10 +71,9 @@ export class OpenAIClient {
         return this.deepResearchV2({ prompt, maxTime, includeSources, model })
       }
       
-      // For deep-research models, use standard API with enhanced prompt
+      // Deep research models should use the dedicated deep research client
       if (model.includes('deep-research')) {
-        console.log(`Using enhanced chat completions for deep research model: ${model}`)
-        // Deep research models use standard endpoint but with special prompting
+        throw new Error('Deep research models should use the dedicated deep research API. This is handled by processDeepResearchTask.')
       }
 
       // Otherwise use the standard chat completions endpoint
@@ -82,43 +81,23 @@ export class OpenAIClient {
         const startTime = Date.now()
         
         // Use the selected model for research
-        const isDeepResearch = model.includes('deep-research')
-        const systemPrompt = isDeepResearch 
-          ? `You are an advanced deep research assistant. Your task is to conduct exhaustive, comprehensive research on the given topic.
-            
-            For this deep research task:
-            1. Explore the topic from multiple angles and perspectives
-            2. Provide in-depth analysis with extensive detail
-            3. Include historical context, current state, and future implications where relevant
-            4. Break down complex concepts into understandable sections
-            5. Provide specific examples, case studies, and real-world applications
-            6. Include statistics, data points, and quantitative analysis where applicable
-            7. Address potential counterarguments or alternative viewpoints
-            8. Synthesize information into actionable insights
-            
-            Structure your response with clear sections and subsections.
-            ${includeSources ? 'Include detailed source references and citations throughout your response.' : ''}
-            
-            Take your time to provide a thorough, well-researched response.`
-          : `You are a comprehensive research assistant. Conduct deep research on the given topic. 
-            Provide detailed, well-structured information with citations where possible.
-            Focus on accuracy, comprehensiveness, and clarity.
-            ${includeSources ? 'Include source references in your response.' : ''}`
-        
         const response = await this.client.chat.completions.create({
-          model: model.includes('deep-research') ? 'gpt-4o' : model, // Use gpt-4o for deep research
+          model: model,
           messages: [
             {
               role: "system",
-              content: systemPrompt
+              content: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
+              Provide detailed, well-structured information with citations where possible.
+              Focus on accuracy, comprehensiveness, and clarity.
+              ${includeSources ? 'Include source references in your response.' : ''}`
             },
             {
               role: "user",
               content: prompt
             }
           ],
-          temperature: isDeepResearch ? 0.5 : 0.7, // Lower temperature for deep research
-          max_tokens: isDeepResearch ? 8000 : 4000, // More tokens for deep research
+          temperature: 0.7,
+          max_tokens: 4000,
         })
 
       const endTime = Date.now()
