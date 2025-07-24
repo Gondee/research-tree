@@ -43,7 +43,7 @@ export class DeepResearchClient {
    */
   async startDeepResearch({
     prompt,
-    model = 'o3-deep-research-2025-06-26',
+    model = 'gpt-4o',  // Use gpt-4o as the base model for now
     includeSources = true,
     userLocation
   }: DeepResearchRequest): Promise<{ id: string; status: string }> {
@@ -63,52 +63,67 @@ export class DeepResearchClient {
         tools.push(webSearchTool)
       }
 
+      const requestBody = {
+        model,
+        input: [
+          {
+            role: "developer",
+            content: [{
+              type: "input_text",
+              text: `You are a professional research assistant. Conduct exhaustive, comprehensive research on the given topic.
+              
+              For this deep research task:
+              1. Search and analyze multiple authoritative sources
+              2. Provide in-depth analysis with extensive detail
+              3. Include statistics, data points, and quantitative analysis
+              4. Present multiple perspectives and viewpoints
+              5. Include specific examples and case studies
+              6. Synthesize information into actionable insights
+              
+              Structure your response with clear sections and include inline citations.`
+            }]
+          },
+          {
+            role: "user",
+            content: [{
+              type: "input_text",
+              text: prompt
+            }]
+          }
+        ],
+        reasoning: {
+          summary: "auto"
+        },
+        tools,
+        background: true, // Enable background mode for async processing
+        store: true // Required for background mode
+      }
+      
+      console.log('Deep research request:', JSON.stringify(requestBody, null, 2))
+      
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
-          model,
-          input: [
-            {
-              role: "developer",
-              content: [{
-                type: "input_text",
-                text: `You are a professional research assistant. Conduct exhaustive, comprehensive research on the given topic.
-                
-                For this deep research task:
-                1. Search and analyze multiple authoritative sources
-                2. Provide in-depth analysis with extensive detail
-                3. Include statistics, data points, and quantitative analysis
-                4. Present multiple perspectives and viewpoints
-                5. Include specific examples and case studies
-                6. Synthesize information into actionable insights
-                
-                Structure your response with clear sections and include inline citations.`
-              }]
-            },
-            {
-              role: "user",
-              content: [{
-                type: "input_text",
-                text: prompt
-              }]
-            }
-          ],
-          reasoning: {
-            summary: "auto"
-          },
-          tools,
-          background: true, // Enable background mode for async processing
-          store: true // Required for background mode
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
-        const error = await response.text()
-        throw new Error(`Deep research API error: ${response.status} - ${error}`)
+        const errorText = await response.text()
+        console.error(`Deep research API error: ${response.status}`, errorText)
+        
+        // Try to parse error as JSON
+        let errorMessage = errorText
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.error?.message || errorJson.message || errorText
+        } catch (e) {
+          // Use raw text if not JSON
+        }
+        
+        throw new Error(`Deep research API error: ${response.status} - ${errorMessage}`)
       }
 
       const data = await response.json()

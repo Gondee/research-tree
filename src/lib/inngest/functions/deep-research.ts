@@ -16,7 +16,10 @@ export const processDeepResearchTask = inngest.createFunction(
   { event: "research/deep-research.created" },
   async ({ event, step }) => {
     const { taskId, nodeId } = event.data
-    console.log(`Deep research task handler triggered for task ${taskId}, node ${nodeId}`)
+    console.log(`[DEEP-RESEARCH] Handler triggered!`)
+    console.log(`[DEEP-RESEARCH] Task ID: ${taskId}`)
+    console.log(`[DEEP-RESEARCH] Node ID: ${nodeId}`)
+    console.log(`[DEEP-RESEARCH] Event:`, JSON.stringify(event, null, 2))
 
     // Step 1: Get task details with node info
     const task = await step.run("get-task", async () => {
@@ -73,9 +76,10 @@ export const processDeepResearchTask = inngest.createFunction(
     try {
       // Step 3: Start deep research in background mode
       const { deepResearchTaskId } = await step.run("start-deep-research", async () => {
+        console.log(`Starting deep research for model: ${task.node.modelId}`)
         const response = await deepResearchClient.startDeepResearch({
           prompt: task.prompt,
-          model: task.node.modelId || 'o3-deep-research-2025-06-26',
+          model: task.node.modelId || 'gpt-4o',
           includeSources: true,
         })
         

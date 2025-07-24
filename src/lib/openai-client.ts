@@ -71,10 +71,9 @@ export class OpenAIClient {
         return this.deepResearchV2({ prompt, maxTime, includeSources, model })
       }
       
-      // For now, handle deep research models with standard API
+      // Deep research models should use the dedicated deep research client
       if (model.includes('deep-research')) {
-        console.log(`Handling deep research model ${model} with standard API`)
-        // Deep research models will use enhanced prompting
+        throw new Error('Deep research models should use the dedicated deep research API. This is handled by processDeepResearchTask.')
       }
 
       // Otherwise use the standard chat completions endpoint
@@ -82,43 +81,23 @@ export class OpenAIClient {
         const startTime = Date.now()
         
         // Use the selected model for research
-        const isDeepResearch = model.includes('deep-research')
-        const actualModel = isDeepResearch ? 'gpt-4-turbo-preview' : model
-        
-        const systemPrompt = isDeepResearch 
-          ? `You are an advanced deep research assistant. Your task is to conduct exhaustive, comprehensive research on the given topic.
-            
-            For this deep research task, you must:
-            1. Provide an extremely thorough and detailed analysis
-            2. Explore the topic from multiple angles and perspectives
-            3. Include specific data, statistics, and examples
-            4. Provide historical context and future implications
-            5. Address potential counterarguments or alternative viewpoints
-            6. Break down complex concepts into clear explanations
-            7. Synthesize information into actionable insights
-            8. Structure your response with clear sections and subsections
-            
-            Take your time to provide the most comprehensive response possible.
-            ${includeSources ? 'Include detailed source references and citations throughout.' : ''}`
-          : `You are a comprehensive research assistant. Conduct deep research on the given topic. 
-            Provide detailed, well-structured information with citations where possible.
-            Focus on accuracy, comprehensiveness, and clarity.
-            ${includeSources ? 'Include source references in your response.' : ''}`
-        
         const response = await this.client.chat.completions.create({
-          model: actualModel,
+          model: model,
           messages: [
             {
               role: "system",
-              content: systemPrompt
+              content: `You are a comprehensive research assistant. Conduct deep research on the given topic. 
+              Provide detailed, well-structured information with citations where possible.
+              Focus on accuracy, comprehensiveness, and clarity.
+              ${includeSources ? 'Include source references in your response.' : ''}`
             },
             {
               role: "user",
               content: prompt
             }
           ],
-          temperature: isDeepResearch ? 0.5 : 0.7,
-          max_tokens: isDeepResearch ? 8000 : 4000,
+          temperature: 0.7,
+          max_tokens: 4000,
         })
 
       const endTime = Date.now()

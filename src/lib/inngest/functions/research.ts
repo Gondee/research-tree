@@ -38,6 +38,13 @@ export const processResearchTask = inngest.createFunction(
     if (!task) {
       throw new Error(`Task ${taskId} not found`)
     }
+    
+    // Check if this is a deep research task - if so, skip it
+    // The deep research handler will process this
+    if (task.node.modelId?.includes('deep-research')) {
+      console.log(`[RESEARCH] Skipping deep research task ${taskId} - should be handled by processDeepResearchTask`)
+      return { taskId, status: "skipped", reason: "deep-research-model" }
+    }
 
     // Step 2: Update task status to processing
     await step.run("update-status-processing", async () => {
@@ -503,6 +510,15 @@ export const batchProcessResearch = inngest.createFunction(
       node.modelId.includes('o3') || 
       node.modelId.includes('deep-research')
     )
+    const isDeepResearch = node?.modelId && node.modelId.includes('deep-research')
+    
+    console.log(`Node ${nodeId} model details:`, {
+      modelId: node?.modelId,
+      isReasoningModel,
+      isDeepResearch,
+      eventName: isDeepResearch ? 'research/deep-research.created' : 'research/task.created'
+    })
+    
     if (isReasoningModel) {
       console.log(`Using reasoning model (${node.modelId}) with stricter API rate limits. Processing with delays.`)
     }
@@ -535,8 +551,7 @@ export const batchProcessResearch = inngest.createFunction(
       const batchSize = 3 // Process 3 at a time for reasoning models
       for (let i = 0; i < tasks.length; i += batchSize) {
         const batch = tasks.slice(i, i + batchSize)
-        // Always use standard event for now until deep research API is properly configured
-        const eventName = "research/task.created"
+        const eventName = node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created"
         console.log(`Sending event ${eventName} for tasks in batch (model: ${node?.modelId})`)
         
         const batchPromises = batch.map((taskId: string, batchIndex: number) => 
@@ -557,8 +572,7 @@ export const batchProcessResearch = inngest.createFunction(
       // Standard models can handle more parallel requests
       console.log(`Triggering ${tasks.length} research tasks in parallel`)
       
-      // Always use standard event for now until deep research API is properly configured
-      const eventName = "research/task.created"
+      const eventName = node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created"
       console.log(`Sending event ${eventName} for all tasks (model: ${node?.modelId})`)
       
       const eventPromises = tasks.map((taskId: string, index: number) => 
