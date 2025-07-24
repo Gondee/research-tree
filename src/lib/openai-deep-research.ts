@@ -135,7 +135,12 @@ export class DeepResearchClient {
       }
     } catch (error) {
       console.error('Failed to start deep research:', error)
-      throw error
+      // Ensure we always throw an Error instance
+      if (error instanceof Error) {
+        throw error
+      } else {
+        throw new Error(`Failed to start deep research: ${String(error)}`)
+      }
     }
   }
 
@@ -161,7 +166,12 @@ export class DeepResearchClient {
       return data
     } catch (error) {
       console.error('Failed to check deep research status:', error)
-      throw error
+      // Ensure we always throw an Error instance
+      if (error instanceof Error) {
+        throw error
+      } else {
+        throw new Error(`Failed to check deep research status: ${String(error)}`)
+      }
     }
   }
 

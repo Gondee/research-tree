@@ -8,10 +8,6 @@ export const processDeepResearchTask = inngest.createFunction(
   {
     id: "process-deep-research-task",
     retries: 3,
-    timeouts: {
-      start: "5m",    // Allow 5 minutes to start
-      finish: "50m",  // Total 50 minutes execution time
-    },
   },
   { event: "research/deep-research.created" },
   async ({ event, step }) => {
@@ -19,7 +15,6 @@ export const processDeepResearchTask = inngest.createFunction(
     console.log(`[DEEP-RESEARCH] Handler triggered!`)
     console.log(`[DEEP-RESEARCH] Task ID: ${taskId}`)
     console.log(`[DEEP-RESEARCH] Node ID: ${nodeId}`)
-    console.log(`[DEEP-RESEARCH] Event:`, JSON.stringify(event, null, 2))
 
     // Step 1: Get task details with node info
     const task = await step.run("get-task", async () => {
@@ -73,9 +68,11 @@ export const processDeepResearchTask = inngest.createFunction(
       })
     })
 
+    let deepResearchTaskId: string
+
     try {
       // Step 3: Start deep research in background mode
-      const { deepResearchTaskId } = await step.run("start-deep-research", async () => {
+      const startResult = await step.run("start-deep-research", async () => {
         console.log(`Starting deep research for model: ${task.node.modelId}`)
         const response = await deepResearchClient.startDeepResearch({
           prompt: task.prompt,
@@ -99,55 +96,67 @@ export const processDeepResearchTask = inngest.createFunction(
         return { deepResearchTaskId: response.id }
       })
 
-      // Step 4: Poll for completion
-      const maxPollingAttempts = 60 // 30 minutes with 30s intervals
-      const pollInterval = "30s"
-      let attempts = 0
-      let finalResponse = null
+      deepResearchTaskId = startResult.deepResearchTaskId
 
-      while (attempts < maxPollingAttempts && !finalResponse) {
+      // Step 4: Poll for completion - Each poll is a separate step to avoid timeouts
+      const maxPollingAttempts = 60 // 30 minutes with 30s intervals
+      let finalResponse = null
+      
+      for (let attempt = 0; attempt < maxPollingAttempts; attempt++) {
         // Wait before checking (except first attempt)
-        if (attempts > 0) {
-          await step.sleep(`poll-wait-${attempts}`, pollInterval)
+        if (attempt > 0) {
+          await step.sleep(`poll-wait-${attempt}`, "30s")
         }
 
-        // Check status
-        const status = await step.run(`check-status-${attempts}`, async () => {
-          const response = await deepResearchClient.checkDeepResearchStatus(deepResearchTaskId)
+        // Check status in a separate step (this resets the timeout)
+        const status = await step.run(`check-status-${attempt}`, async () => {
+          console.log(`[DEEP-RESEARCH] Checking status attempt ${attempt + 1}/${maxPollingAttempts}`)
           
-          // Update metadata with latest status
-          await prisma.researchTask.update({
-            where: { id: taskId },
-            data: {
-              metadata: {
-                ...(task.metadata as any || {}),
-                openaiTaskId: deepResearchTaskId,
-                openaiStatus: response.status,
-                lastChecked: new Date().toISOString(),
-                pollAttempt: attempts + 1
-              }
-            }
-          })
-          
-          // Log progress every 5 attempts (2.5 minutes)
-          if (attempts % 5 === 0) {
-            await logActivity({
-              sessionId: task.node.session.id,
-              nodeId: task.nodeId,
-              taskId: task.id,
-              level: task.node.level,
-              eventType: "task_started",
-              status: "processing",
-              message: `Deep research in progress (${Math.floor(attempts * 0.5)} minutes elapsed)`,
-              details: `Status: ${response.status}. Deep research is analyzing multiple sources...`,
-              metadata: {
-                elapsedMinutes: Math.floor(attempts * 0.5),
-                checkNumber: attempts + 1
+          try {
+            const response = await deepResearchClient.checkDeepResearchStatus(deepResearchTaskId)
+            
+            // Update metadata with latest status
+            await prisma.researchTask.update({
+              where: { id: taskId },
+              data: {
+                metadata: {
+                  ...(task.metadata as any || {}),
+                  openaiTaskId: deepResearchTaskId,
+                  openaiStatus: response.status,
+                  lastChecked: new Date().toISOString(),
+                  pollAttempt: attempt + 1
+                }
               }
             })
+            
+            // Log progress every 5 attempts (2.5 minutes)
+            if (attempt % 5 === 0 && attempt > 0) {
+              await logActivity({
+                sessionId: task.node.session.id,
+                nodeId: task.nodeId,
+                taskId: task.id,
+                level: task.node.level,
+                eventType: "task_started",
+                status: "processing",
+                message: `Deep research in progress (${Math.floor(attempt * 0.5)} minutes elapsed)`,
+                details: `Status: ${response.status}. Deep research is analyzing multiple sources...`,
+                metadata: {
+                  elapsedMinutes: Math.floor(attempt * 0.5),
+                  checkNumber: attempt + 1
+                }
+              })
+            }
+            
+            return response
+          } catch (error) {
+            console.error(`[DEEP-RESEARCH] Status check failed at attempt ${attempt + 1}:`, error)
+            // Don't fail immediately on status check errors
+            if (attempt < 5) {
+              // Early in the process, the task might not be ready yet
+              return { status: 'in_progress' }
+            }
+            throw error
           }
-          
-          return response
         })
 
         if (status.status === 'completed') {
@@ -156,8 +165,6 @@ export const processDeepResearchTask = inngest.createFunction(
         } else if (status.status === 'failed') {
           throw new Error(status.error || 'Deep research task failed')
         }
-
-        attempts++
       }
 
       if (!finalResponse) {
@@ -242,8 +249,16 @@ export const processDeepResearchTask = inngest.createFunction(
       return { taskId, status: "completed", deepResearchTaskId }
       
     } catch (error) {
-      // Handle errors
-      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      // Handle errors with better logging
+      console.error('[DEEP-RESEARCH] Error occurred:', error)
+      console.error('[DEEP-RESEARCH] Error type:', typeof error)
+      console.error('[DEEP-RESEARCH] Error details:', JSON.stringify(error, null, 2))
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string' 
+        ? error 
+        : JSON.stringify(error)
       
       await step.run("handle-error", async () => {
         await ActivityLogger.taskFailed(
@@ -255,17 +270,25 @@ export const processDeepResearchTask = inngest.createFunction(
           errorMessage
         )
         
+        // Update task with error and any deep research task ID we might have
         await prisma.researchTask.update({
           where: { id: taskId },
           data: {
             status: "failed",
             errorMessage: errorMessage,
             completedAt: new Date(),
+            metadata: {
+              ...(task.metadata as any || {}),
+              openaiTaskId: deepResearchTaskId || null,
+              failureReason: 'deep_research_error',
+              errorDetails: JSON.stringify(error)
+            }
           },
         })
       })
       
-      throw error
+      // Always throw a proper Error instance
+      throw new Error(errorMessage)
     }
   }
 )
