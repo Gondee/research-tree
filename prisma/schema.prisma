@@ -63,6 +63,8 @@ model ResearchNode {
 
   @@index([sessionId])
   @@index([parentId])
+  @@index([status]) // Index for filtering by status
+  @@index([sessionId, status]) // Composite index for session status queries
 }
 
 // Individual research tasks
@@ -83,6 +85,8 @@ model ResearchTask {
   createdAt       DateTime @default(now())
 
   @@index([nodeId])
+  @@index([status]) // Index for filtering by status
+  @@index([nodeId, status]) // Composite index for node status queries
 }
 
 // Table configurations
@@ -131,4 +135,5 @@ model ActivityLog {
   @@index([taskId])
   @@index([eventType])
   @@index([createdAt])
+  @@index([sessionId, createdAt]) // Composite index for session activity queries
 }

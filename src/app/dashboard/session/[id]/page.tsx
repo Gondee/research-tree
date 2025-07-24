@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
@@ -95,17 +96,8 @@ export default function SessionPage({ params }: SessionPageProps) {
       node.status === 'pending' || node.status === 'processing'
     ) || false
     
-    if (hasActiveTasks || hasActiveNodes) {
-      console.log('Auto-refresh enabled: active tasks or nodes detected')
-      const interval = setInterval(() => {
-        console.log('Auto-refreshing session data...')
-        loadSession()
-      }, 5000) // Poll every 5 seconds
-      
-      return () => clearInterval(interval)
-    }
   }, [researchSession, sessionId])
-
+  
   const loadSession = async () => {
     if (!sessionId) return
     
@@ -133,6 +125,22 @@ export default function SessionPage({ params }: SessionPageProps) {
       setIsRefreshing(false)
     }
   }
+  
+  // Get active status for polling
+  const allTasks = researchSession?.nodes?.flatMap(node => 
+    node.tasks?.filter((t: any) => t) || []
+  ) || []
+  const hasActiveTasks = allTasks.some(t => t.status === 'pending' || t.status === 'processing')
+  const hasActiveNodes = researchSession?.nodes?.some(node => 
+    node.status === 'pending' || node.status === 'processing'
+  ) || false
+  
+  // Auto-refresh when there are active tasks with optimized polling
+  useVisibilityPolling(
+    loadSession,
+    10000, // Poll every 10 seconds (reduced from 5 seconds)
+    hasActiveTasks || hasActiveNodes
+  )
 
   const handleRefresh = () => {
     loadSession()

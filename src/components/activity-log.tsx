@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Activity, CheckCircle, AlertCircle, Clock, RefreshCw } from 'lucide-react'
@@ -71,11 +72,14 @@ export function ActivityLog({ sessionId }: ActivityLogProps) {
 
   useEffect(() => {
     loadLogs()
-    
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(loadLogs, 5000)
-    return () => clearInterval(interval)
   }, [sessionId])
+  
+  // Auto-refresh logs with optimized polling
+  useVisibilityPolling(
+    loadLogs,
+    15000, // Poll every 15 seconds (reduced from 5 seconds)
+    true
+  )
 
   if (isLoading) {
     return (

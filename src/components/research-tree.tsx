@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChevronRight, FileText, Loader2 } from 'lucide-react'
@@ -32,26 +33,21 @@ export function ResearchTree({ sessionId, onNodeSelect }: ResearchTreeProps) {
     loadNodes()
   }, [sessionId])
 
+  // Check if any nodes are still processing
+  const hasActiveNodes = (nodeList: TreeNode[]): boolean => {
+    for (const node of nodeList) {
+      if (node.status === 'pending' || node.status === 'processing') return true
+      if (node.children && hasActiveNodes(node.children)) return true
+    }
+    return false
+  }
+
   // Auto-refresh when there are active nodes
   useEffect(() => {
     if (!nodes || nodes.length === 0) return
 
-    // Check if any nodes are still processing
-    const hasActiveNodes = (nodeList: TreeNode[]): boolean => {
-      for (const node of nodeList) {
-        if (node.status === 'pending' || node.status === 'processing') return true
-        if (node.children && hasActiveNodes(node.children)) return true
-      }
-      return false
-    }
-
     if (hasActiveNodes(nodes)) {
       console.log('ResearchTree: Auto-refresh enabled')
-      const interval = setInterval(() => {
-        loadNodes()
-      }, 3000) // Poll every 3 seconds for more responsive UI
-
-      return () => clearInterval(interval)
     }
   }, [nodes, sessionId])
 
@@ -98,6 +94,13 @@ export function ResearchTree({ sessionId, onNodeSelect }: ResearchTreeProps) {
       setIsLoading(false)
     }
   }
+  
+  // Use optimized polling with visibility detection
+  useVisibilityPolling(
+    loadNodes,
+    10000, // Poll every 10 seconds (reduced from 3 seconds)
+    sessionId ? hasActiveNodes(nodes) : false
+  )
 
   const handleNodeClick = (nodeId: string) => {
     setSelectedNodeId(nodeId)

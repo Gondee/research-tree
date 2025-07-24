@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useVisibilityPolling } from '@/hooks/use-visibility-polling'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
@@ -121,14 +122,12 @@ export default function ActivityLogPage() {
     }
   }, [pagination.page, sessionId, eventType])
 
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadLogs(true)
-    }, 5000)
-    
-    return () => clearInterval(interval)
-  }, [pagination.page, sessionId, eventType])
+  // Auto-refresh logs with optimized polling
+  useVisibilityPolling(
+    () => loadLogs(true),
+    15000, // Poll every 15 seconds (reduced from 5 seconds)
+    status === 'authenticated'
+  )
 
   const loadSessions = async () => {
     try {
