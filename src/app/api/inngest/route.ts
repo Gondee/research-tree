@@ -1,19 +1,37 @@
 import { serve } from "inngest/next"
 import { inngest } from "@/lib/inngest/client"
-import * as functions from "@/lib/inngest/functions"
+import { 
+  processResearchTask, 
+  generateTable, 
+  batchProcessResearch,
+  processResearchTaskV2,
+  batchProcessResearchV2,
+  processDeepResearchTask,
+  generateAggregateTable,
+  checkAndGenerateAggregateTable,
+  monitorLongRunningTask,
+  startTaskMonitoring
+} from "@/lib/inngest/functions"
+
+// Explicitly list all functions to ensure they're included
+const allFunctions = [
+  processResearchTask,
+  generateTable,
+  batchProcessResearch,
+  processResearchTaskV2,
+  batchProcessResearchV2,
+  processDeepResearchTask,
+  generateAggregateTable,
+  checkAndGenerateAggregateTable,
+  monitorLongRunningTask,
+  startTaskMonitoring
+]
 
 // Debug: Log all registered functions
-console.log('[INNGEST] Registering functions:', Object.keys(functions))
-console.log('[INNGEST] Function details:', Object.entries(functions).map(([name, fn]) => ({
-  name,
-  // @ts-ignore
-  id: fn.id || 'unknown',
-  // @ts-ignore
-  trigger: fn.trigger || 'unknown'
-})))
+console.log('[INNGEST] Registering functions:', allFunctions.map(fn => fn.id))
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: Object.values(functions),
+  functions: allFunctions,
   signingKey: process.env.INNGEST_SIGNING_KEY,
 })
