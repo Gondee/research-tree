@@ -105,9 +105,11 @@ export const processResearchTaskV2 = inngest.createFunction(
             try {
               // For now, we'll do the actual API call here
               // In a production system, you might want to use a job queue
+              // For deep research, we need to use shorter timeouts and rely on retries
+              const attemptTimeout = 300 // 5 minutes per attempt
               const result = await openAIClient.deepResearch({
                 prompt: task.prompt,
-                maxTime: 1200, // 20 minutes
+                maxTime: attemptTimeout,
                 includeSources: true,
                 model: task.node.modelId || 'gpt-4o',
               })
