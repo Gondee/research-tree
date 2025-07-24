@@ -45,6 +45,8 @@ export class OpenAIClient {
     
     this.client = new OpenAI({
       apiKey: cleanApiKey,
+      timeout: 60 * 60 * 1000, // 60 minutes timeout for deep research models
+      maxRetries: 2,
     }) as any
     
     // Log a reminder about checking API tier
@@ -58,9 +60,12 @@ export class OpenAIClient {
     model = 'gpt-4o'
   }: DeepResearchRequest & { model?: string }): Promise<DeepResearchResponse> {
     try {
-      // Check if this is a deep research model that requires the responses endpoint
-      if (model.includes('deep-research')) {
-        console.log(`Using /v1/responses endpoint for model: ${model}`)
+      // Check if this is a reasoning/deep research model that requires the responses endpoint
+      const isReasoningModel = model.includes('o1') || model.includes('o3') || 
+                              model.includes('o4') || model.includes('deep-research')
+      
+      if (isReasoningModel) {
+        console.log(`Using /v1/responses endpoint for reasoning model: ${model}`)
         // Note: API rate limits are tier-based, not subscription-based
         // Reasoning models typically have lower RPM/TPM limits than standard models
         return this.deepResearchV2({ prompt, maxTime, includeSources, model })
@@ -139,6 +144,7 @@ export class OpenAIClient {
       }
 
       // Use the responses endpoint for deep research models
+      console.log(`Starting deep research with model ${model}, timeout: ${maxTime}s`)
       const response = await this.retryWithExponentialBackoff(async () => 
         this.client.responses.create({
           model: model,
@@ -249,12 +255,19 @@ export class OpenAIClient {
       const startTime = Date.now()
 
       // Direct API call to responses endpoint
+      console.log(`Using fallback method for deep research with model ${model}`)
+      
+      const controller = new AbortController()
+      const timeoutMs = (maxTime || 1200) * 1000
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+      
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model: model,
           input: [
@@ -276,6 +289,8 @@ export class OpenAIClient {
           tools: includeSources ? [{ type: "web_search_preview" }] : []
         })
       })
+      
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const error = await response.text()

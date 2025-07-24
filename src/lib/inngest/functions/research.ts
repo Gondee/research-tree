@@ -49,15 +49,22 @@ export const processResearchTask = inngest.createFunction(
         task.node.level
       )
       
-      // Log warning for deep research models
-      if (task.node.modelId?.includes('deep-research')) {
+      // Log warning for reasoning/deep research models
+      const isReasoningModel = task.node.modelId && (
+        task.node.modelId.includes('o1') || 
+        task.node.modelId.includes('o3') || 
+        task.node.modelId.includes('o4') || 
+        task.node.modelId.includes('deep-research')
+      )
+      
+      if (isReasoningModel) {
         await logActivity({
           sessionId: task.node.session.id,
           nodeId: task.nodeId,
           taskId: task.id,
           level: task.node.level,
           eventType: "task_started",
-          message: `⚠️ Deep research model detected - this may take 30-50 minutes`,
+          message: `⚠️ Reasoning model detected - this may take 30-50 minutes`,
           details: `Using ${task.node.modelId}. Note: Very long research tasks may timeout. Consider breaking complex queries into smaller parts.`,
         })
       }
@@ -75,8 +82,15 @@ export const processResearchTask = inngest.createFunction(
       })
     })
     
-    // Step 2.5: Start monitoring for deep research tasks
-    if (task.node.modelId?.includes('deep-research')) {
+    // Step 2.5: Start monitoring for reasoning/deep research tasks
+    const isReasoningModel = task.node.modelId && (
+      task.node.modelId.includes('o1') || 
+      task.node.modelId.includes('o3') || 
+      task.node.modelId.includes('o4') || 
+      task.node.modelId.includes('deep-research')
+    )
+    
+    if (isReasoningModel) {
       await step.sendEvent("start-monitoring", {
         name: "research/task.started",
         data: { 
@@ -89,9 +103,14 @@ export const processResearchTask = inngest.createFunction(
     // Step 3: Call OpenAI Deep Research
     const researchResult = await step.run("call-openai", async () => {
       try {
-        // For deep research models, use a more conservative timeout
-        const isDeepResearch = task.node.modelId?.includes('deep-research')
-        const maxTime = isDeepResearch ? 3000 : 1800 // 50 minutes for deep, 30 for others
+        // For reasoning models, use a more conservative timeout
+        const isReasoningModel = task.node.modelId && (
+          task.node.modelId.includes('o1') || 
+          task.node.modelId.includes('o3') || 
+          task.node.modelId.includes('o4') || 
+          task.node.modelId.includes('deep-research')
+        )
+        const maxTime = isReasoningModel ? 3000 : 1800 // 50 minutes for reasoning, 30 for others
         
         return await openAIClient.deepResearch({
           prompt: task.prompt,
