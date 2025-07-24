@@ -110,6 +110,10 @@ export const processResearchTask = inngest.createFunction(
           task.node.modelId.includes('o4') || 
           task.node.modelId.includes('deep-research')
         )
+        
+        // Log the model being used
+        console.log(`Processing task with model: ${task.node.modelId}`)
+        
         const maxTime = isReasoningModel ? 3000 : 1800 // 50 minutes for reasoning, 30 for others
         
         return await openAIClient.deepResearch({
@@ -531,9 +535,13 @@ export const batchProcessResearch = inngest.createFunction(
       const batchSize = 3 // Process 3 at a time for reasoning models
       for (let i = 0; i < tasks.length; i += batchSize) {
         const batch = tasks.slice(i, i + batchSize)
+        // Always use standard event for now until deep research API is properly configured
+        const eventName = "research/task.created"
+        console.log(`Sending event ${eventName} for tasks in batch (model: ${node?.modelId})`)
+        
         const batchPromises = batch.map((taskId: string, batchIndex: number) => 
           step.sendEvent(`trigger-task-${i + batchIndex}`, {
-            name: node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created",
+            name: eventName,
             data: { taskId, nodeId },
           })
         )
@@ -549,9 +557,13 @@ export const batchProcessResearch = inngest.createFunction(
       // Standard models can handle more parallel requests
       console.log(`Triggering ${tasks.length} research tasks in parallel`)
       
+      // Always use standard event for now until deep research API is properly configured
+      const eventName = "research/task.created"
+      console.log(`Sending event ${eventName} for all tasks (model: ${node?.modelId})`)
+      
       const eventPromises = tasks.map((taskId: string, index: number) => 
         step.sendEvent(`trigger-task-${index}`, {
-          name: node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created",
+          name: eventName,
           data: { taskId, nodeId },
         })
       )

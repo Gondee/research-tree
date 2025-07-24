@@ -16,6 +16,7 @@ export const processDeepResearchTask = inngest.createFunction(
   { event: "research/deep-research.created" },
   async ({ event, step }) => {
     const { taskId, nodeId } = event.data
+    console.log(`Deep research task handler triggered for task ${taskId}, node ${nodeId}`)
 
     // Step 1: Get task details with node info
     const task = await step.run("get-task", async () => {

@@ -49,6 +49,7 @@ export class DeepResearchClient {
   }: DeepResearchRequest): Promise<{ id: string; status: string }> {
     try {
       console.log(`Starting deep research with model ${model} in background mode`)
+      console.log(`API Key present: ${!!this.apiKey}, Key length: ${this.apiKey?.length}`)
       
       const tools = []
       if (includeSources) {
