@@ -67,9 +67,24 @@ export const processResearchTask = inngest.createFunction(
         data: {
           status: "processing",
           startedAt: new Date(),
+          metadata: {
+            lastHeartbeat: new Date().toISOString(),
+            expectedDuration: task.node.modelId?.includes('deep-research') ? '30-50 minutes' : '5-15 minutes'
+          }
         },
       })
     })
+    
+    // Step 2.5: Start monitoring for deep research tasks
+    if (task.node.modelId?.includes('deep-research')) {
+      await step.sendEvent("start-monitoring", {
+        name: "research/task.started",
+        data: { 
+          taskId, 
+          isDeepResearch: true 
+        },
+      })
+    }
 
     // Step 3: Call OpenAI Deep Research
     const researchResult = await step.run("call-openai", async () => {

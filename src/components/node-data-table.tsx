@@ -27,6 +27,8 @@ interface NodeData {
     status: string
     openaiResponse?: string
     errorMessage?: string
+    metadata?: any
+    startedAt?: string
   }>
   generatedTable?: {
     tableData: any // This is JSON data from the database
@@ -170,17 +172,38 @@ export function NodeDataTable({ nodeId, sessionId }: NodeDataTableProps) {
             {nodeData.tasks && nodeData.tasks.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-medium text-sm">Task Status:</h4>
-                {nodeData.tasks.map((task, index) => (
-                  <div key={task.id} className="flex items-center justify-between text-sm p-2 rounded bg-white">
-                    <span>Task #{index + 1}</span>
-                    <span className={cn(
-                      "px-2 py-1 rounded text-xs",
-                      task.status === 'failed' ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                    )}>
-                      {task.status}
-                    </span>
-                  </div>
-                ))}
+                {nodeData.tasks.map((task, index) => {
+                  const elapsedMinutes = task.startedAt && task.status === 'processing' 
+                    ? Math.floor((new Date().getTime() - new Date(task.startedAt).getTime()) / 60000)
+                    : task.metadata?.elapsedMinutes
+                  
+                  return (
+                    <div key={task.id} className="flex items-center justify-between text-sm p-2 rounded bg-white">
+                      <div className="flex-1">
+                        <span>Task #{index + 1}</span>
+                        {task.status === 'processing' && elapsedMinutes !== undefined && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-[100px]">
+                              <div 
+                                className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min((elapsedMinutes / 50) * 100, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500">{elapsedMinutes} min</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className={cn(
+                        "px-2 py-1 rounded text-xs",
+                        task.status === 'failed' ? "bg-red-100 text-red-700" : 
+                        task.status === 'processing' ? "bg-blue-100 text-blue-700" :
+                        "bg-green-100 text-green-700"
+                      )}>
+                        {task.status}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

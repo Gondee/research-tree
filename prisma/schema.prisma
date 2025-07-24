@@ -77,6 +77,7 @@ model ResearchTask {
   errorMessage    String?
   retryCount      Int      @default(0)
   parentRowData   Json?    // Stores the parent table row that spawned this task
+  metadata        Json?    // Stores progress tracking metadata
   startedAt       DateTime?
   completedAt     DateTime?
   createdAt       DateTime @default(now())

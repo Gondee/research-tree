@@ -112,6 +112,19 @@ export function ActivityLog({ sessionId }: ActivityLogProps) {
               {log.details && (
                 <p className="text-xs text-muted-foreground">{log.details}</p>
               )}
+              {log.metadata?.elapsedMinutes && log.status === 'processing' && (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min((log.metadata.elapsedMinutes / 50) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {log.metadata.elapsedMinutes} min
+                  </span>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 {new Date(log.createdAt).toLocaleString()}
               </p>
