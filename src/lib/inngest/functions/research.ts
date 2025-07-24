@@ -552,14 +552,16 @@ export const batchProcessResearch = inngest.createFunction(
       for (let i = 0; i < tasks.length; i += batchSize) {
         const batch = tasks.slice(i, i + batchSize)
         const eventName = node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created"
-        console.log(`Sending event ${eventName} for tasks in batch (model: ${node?.modelId})`)
+        console.log(`[BATCH] Sending event ${eventName} for tasks in batch (model: ${node?.modelId})`)
+        console.log(`[BATCH] Event data:`, { taskId: batch[0], nodeId })
         
-        const batchPromises = batch.map((taskId: string, batchIndex: number) => 
-          step.sendEvent(`trigger-task-${i + batchIndex}`, {
+        const batchPromises = batch.map((taskId: string, batchIndex: number) => {
+          console.log(`[BATCH] Sending event ${i + batchIndex}: ${eventName} with taskId: ${taskId}`)
+          return step.sendEvent(`trigger-task-${i + batchIndex}`, {
             name: eventName,
             data: { taskId, nodeId },
           })
-        )
+        })
         
         await Promise.all(batchPromises)
         
@@ -573,14 +575,16 @@ export const batchProcessResearch = inngest.createFunction(
       console.log(`Triggering ${tasks.length} research tasks in parallel`)
       
       const eventName = node?.modelId?.includes('deep-research') ? "research/deep-research.created" : "research/task.created"
-      console.log(`Sending event ${eventName} for all tasks (model: ${node?.modelId})`)
+      console.log(`[BATCH] Sending event ${eventName} for all tasks (model: ${node?.modelId})`)
+      console.log(`[BATCH] Task IDs:`, tasks)
       
-      const eventPromises = tasks.map((taskId: string, index: number) => 
-        step.sendEvent(`trigger-task-${index}`, {
+      const eventPromises = tasks.map((taskId: string, index: number) => {
+        console.log(`[BATCH] Sending event ${index}: ${eventName} with taskId: ${taskId}`)
+        return step.sendEvent(`trigger-task-${index}`, {
           name: eventName,
           data: { taskId, nodeId },
         })
-      )
+      })
       
       await Promise.all(eventPromises)
     }
